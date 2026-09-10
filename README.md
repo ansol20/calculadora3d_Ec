@@ -29,14 +29,28 @@ el tiempo de impresión; el resto son tus números de taller.
 
 | Archivo | De dónde salen los datos |
 | --- | --- |
-| `.3mf` de Bambu Studio u Orca | `Metadata/slice_info.config`: peso y tiempo reales, un renglón por filamento, más la miniatura de la placa |
+| `.3mf` laminado (Bambu, Orca, Creality Print) | `Metadata/slice_info.config`: peso y tiempo reales **por bandeja**, un renglón por filamento, más la miniatura |
+| Bandeja exportada (`.gcode.3mf`) | los totales de `Metadata/plate_N.gcode` dentro del propio ZIP |
 | `.3mf` de PrusaSlicer | `Metadata/Slic3r_PE.config`: tipo de material, densidad y precio configurado |
-| `.3mf` de Creality Print | `Metadata/project_settings.config`: impresora, material, relleno, boquilla y perímetros |
+| Cualquier proyecto | `Metadata/project_settings.config`: impresora, filamento con su nombre comercial, perfil de proceso, relleno, boquilla y perímetros |
+| Cualquier proyecto | `Metadata/model_settings.config`: qué objetos hay en cada bandeja y cómo se llaman |
 | `.3mf` sin laminar (MakerWorld) | mide la geometría siguiendo las mallas externas (`p:path` → `3D/Objects/*.model`) y estima los gramos con las paredes y el relleno reales |
 | `.gcode` | comentarios de totales de PrusaSlicer, Orca, Bambu Studio y Cura |
 
+Cuando el proyecto trae varias bandejas puedes costear una sola o todas
+juntas, y la ficha muestra impresora, perfil, filamento, altura de capa,
+relleno, gramos, metros, tiempo y los objetos de esa bandeja.
+
 El ZIP se lee en el navegador con `DecompressionStream`, sin librerías y sin
 subir nada a ningún servidor.
+
+### Cómo guardar el proyecto laminado
+
+En Creality Print, Bambu Studio y Orca: lamina la bandeja y luego
+**Archivo → Guardar proyecto como…**. El `.3mf` guardado *después* de laminar
+lleva dentro el peso y el tiempo reales. También sirve exportar la bandeja
+laminada (`.gcode.3mf`). Un `.3mf` descargado de MakerWorld y guardado sin
+laminar solo trae geometría, y ahí la calculadora estima.
 
 ## Usar
 

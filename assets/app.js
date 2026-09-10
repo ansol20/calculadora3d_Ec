@@ -199,49 +199,85 @@ function pintar() {
 }
 
 /* ── Importar .3mf / .gcode ───────────────────────────────────────────── */
-function aplicarImportacion(info, rellenoPct) {
-  if (info.segundos > 0) {
-    estado.horas = Math.floor(info.segundos / 3600);
-    estado.minutos = Math.round((info.segundos % 3600) / 60);
+let importacion = null;      // última ficha leída
+let bandejaSel = '1';        // '1', '2'… o 'todas'
+let rellenoSel = 15;
+
+const bandejasElegidas = (info, seleccion) => (seleccion === 'todas'
+  ? info.bandejas
+  : info.bandejas.filter((b) => String(b.indice) === String(seleccion)));
+
+/** Busca el precio y la densidad que ya conocemos para un tipo de filamento. */
+const preset = (nombre) => MATERIALES.find((m) => m.nombre.toLowerCase() === String(nombre || '').toLowerCase())
+  || MATERIALES.find((m) => String(nombre || '').toUpperCase().startsWith(m.nombre.toUpperCase()));
+
+function aplicarImportacion() {
+  const info = importacion;
+  if (!info) return;
+  const elegidas = bandejasElegidas(info, bandejaSel);
+  if (!elegidas.length) return;
+
+  const segundos = elegidas.reduce((s, b) => s + (b.segundos || 0), 0);
+  if (segundos > 0) {
+    estado.horas = Math.floor(segundos / 3600);
+    estado.minutos = Math.round((segundos % 3600) / 60);
   }
 
-  const preset = (nombre) => MATERIALES.find((m) => m.nombre.toLowerCase() === String(nombre || '').toLowerCase())
-    || MATERIALES.find((m) => String(nombre || '').toUpperCase().startsWith(m.nombre.toUpperCase()));
+  // Un renglón por tipo de filamento, sumando las bandejas elegidas.
+  const porTipo = new Map();
+  for (const b of elegidas) {
+    for (const f of b.filamentos || []) {
+      const clave = f.tipo || info.tipo3d || 'PLA';
+      porTipo.set(clave, (porTipo.get(clave) || 0) + f.gramos);
+    }
+  }
 
-  if (info.filamentos?.length) {
-    estado.materiales = info.filamentos.map((f) => {
-      const p = preset(f.tipo);
+  const nombreBonito = (tipo) => {
+    const comercial = String(info.filamento || '').trim();
+    if (!comercial) return tipo;
+    // "Hyper PLA" ya dice de qué material es; no lo repitas.
+    return comercial.toUpperCase().includes(String(tipo).toUpperCase()) ? comercial : `${comercial} ${tipo}`;
+  };
+
+  if (porTipo.size) {
+    estado.materiales = [...porTipo].map(([tipo, gramos]) => {
+      const p = preset(tipo);
       return {
-        nombre: f.tipo,
-        precioBobina: p?.precioBobina ?? info.precioKg ?? 22,
+        nombre: porTipo.size === 1 ? nombreBonito(tipo) : tipo,
+        precioBobina: info.precioKg || p?.precioBobina || 22,
         pesoBobina: 1000,
-        gramos: Math.round(f.gramos * 10) / 10,
+        gramos: Math.round(gramos * 10) / 10,
       };
     });
-  } else if (info.gramos > 0) {
-    const p = preset(info.tipo3d);
-    estado.materiales = [{
-      nombre: info.tipo3d || p?.nombre || 'PLA',
-      precioBobina: info.precioKg || p?.precioBobina || 22,
-      pesoBobina: 1000,
-      gramos: Math.round(info.gramos * 10) / 10,
-    }];
-  } else if (info.volumenCm3 > 0) {
-    const densidad = info.densidad || preset(info.tipo3d)?.densidad || 1.24;
-    const gramos = estimarGramos({
-      volumenCm3: info.volumenCm3,
-      superficieCm2: info.superficieCm2,
-      densidad,
-      rellenoPct,
-      paredes: info.paredes,
-      boquilla: info.boquilla,
-    });
-    estado.materiales = [{
-      nombre: info.tipo3d || 'PLA',
-      precioBobina: info.precioKg || preset(info.tipo3d)?.precioBobina || 22,
-      pesoBobina: 1000,
-      gramos: Math.round(gramos * 10) / 10,
-    }];
+  } else {
+    const gramosLaminados = elegidas.reduce((s, b) => s + (b.gramos || 0), 0);
+    const tipo = info.tipo3d || 'PLA';
+    const p = preset(tipo);
+    let gramos = gramosLaminados;
+
+    if (!gramos) {
+      const volumen = elegidas.reduce((s, b) => s + (b.volumenCm3 || 0), 0);
+      const superficie = elegidas.reduce((s, b) => s + (b.superficieCm2 || 0), 0);
+      if (volumen > 0) {
+        gramos = estimarGramos({
+          volumenCm3: volumen,
+          superficieCm2: superficie,
+          densidad: info.densidad || p?.densidad || 1.24,
+          rellenoPct: rellenoSel,
+          paredes: info.paredes,
+          boquilla: info.boquilla,
+        });
+      }
+    }
+
+    if (gramos > 0) {
+      estado.materiales = [{
+        nombre: nombreBonito(tipo),
+        precioBobina: info.precioKg || p?.precioBobina || 22,
+        pesoBobina: 1000,
+        gramos: Math.round(gramos * 10) / 10,
+      }];
+    }
   }
 
   if (info.impresora && !String(estado.modeloImpresora || '').trim()) {
@@ -253,43 +289,83 @@ function aplicarImportacion(info, rellenoPct) {
   guardar();
 }
 
-function tarjetaImportacion(info, rellenoPct) {
+function tarjetaImportacion() {
+  const info = importacion;
   const caja = $('importado');
   caja.hidden = false;
   caja.className = 'importado';
 
-  const datos = [];
-  if (info.segundos > 0) datos.push(`⏱ ${formatoDuracion(info.segundos / 3600)}`);
-  if (info.gramos > 0) datos.push(`⚖ ${numero(info.gramos, 1)} g`);
-  if (info.volumenCm3 > 0) datos.push(`▣ ${numero(info.volumenCm3, 1)} cm³ de plástico`);
-  if (info.piezas > 1) datos.push(`× ${info.piezas} objetos en la placa`);
-  if (info.tipo3d) datos.push(info.tipo3d);
-  if (info.impresora) datos.push(`🖨 ${info.impresora}`);
+  const elegidas = bandejasElegidas(info, bandejaSel);
+  const segundos = elegidas.reduce((s, b) => s + (b.segundos || 0), 0);
+  const gramos = elegidas.reduce((s, b) => s + (b.gramos || 0), 0);
+  const metros = elegidas.reduce((s, b) => s + (b.metros || 0), 0);
+  const volumen = elegidas.reduce((s, b) => s + (b.volumenCm3 || 0), 0);
+  const objetos = elegidas.flatMap((b) => b.objetos || []);
+  const estimando = !gramos && volumen > 0;
 
-  const necesitaRelleno = !info.gramos && info.volumenCm3 > 0;
+  const etiquetaBandeja = (b) => {
+    const partes = [];
+    if (b.segundos) partes.push(formatoDuracion(b.segundos / 3600));
+    if (b.gramos) partes.push(`${numero(b.gramos, 1)} g`);
+    else if (b.volumenCm3) partes.push(`${numero(b.volumenCm3, 0)} cm³`);
+    if (b.objetos?.length) partes.push(`${b.objetos.length} ${b.objetos.length === 1 ? 'objeto' : 'objetos'}`);
+    return `Bandeja ${b.indice}${b.nombre ? ` · ${b.nombre}` : ''}${partes.length ? ` — ${partes.join(' · ')}` : ''}`;
+  };
+
+  const ficha = [
+    info.impresora ? ['Impresora', info.impresora] : null,
+    info.perfil ? ['Perfil', info.perfil] : null,
+    info.filamento || info.tipo3d ? ['Filamento', [info.filamento || info.tipo3d, info.marca ? `(${info.marca})` : ''].join(' ').trim()] : null,
+    info.alturaCapa ? ['Capa y boquilla', `${numero(info.alturaCapa, 2)} mm · boquilla ${numero(info.boquilla || 0.4, 2)} mm`] : null,
+    info.relleno != null ? ['Relleno del perfil', `${numero(info.relleno, 0)} %`] : null,
+    gramos ? ['Filamento usado', `${numero(gramos, 2)} g${metros ? ` · ${numero(metros, 2)} m` : ''}`] : null,
+    !gramos && volumen ? ['Volumen medido', `${numero(volumen, 1)} cm³`] : null,
+    segundos ? ['Tiempo de impresión', formatoDuracion(segundos / 3600)] : null,
+    objetos.length ? ['Objetos', objetos.slice(0, 6).join(', ') + (objetos.length > 6 ? ` y ${objetos.length - 6} más` : '')] : null,
+  ].filter(Boolean);
+
+  const opciones = [
+    ...info.bandejas.map((b) => `<option value="${b.indice}"${String(b.indice) === bandejaSel ? ' selected' : ''}>${etiquetaBandeja(b)}</option>`),
+    info.bandejas.length > 1
+      ? `<option value="todas"${bandejaSel === 'todas' ? ' selected' : ''}>Las ${info.bandejas.length} bandejas juntas</option>`
+      : '',
+  ].join('');
+
   caja.innerHTML = `
-    ${info.miniatura ? `<img src="${info.miniatura}" alt="Vista previa del laminado">` : ''}
+    ${info.miniatura ? `<img src="${elegidas[0]?.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
     <div class="importado__cuerpo">
       <span class="importado__titulo">${info.archivo}</span>
-      <span class="importado__datos">${datos.map((d) => `<span>${d}</span>`).join('')}</span>
-      ${info.origen ? `<span class="importado__aviso">Leído de ${info.origen}.</span>` : ''}
-      ${necesitaRelleno ? `
-        <label class="importado__relleno">Relleno usado
+      <span class="importado__aviso">Leído ${info.origen || 'del archivo'}.</span>
+
+      ${info.bandejas.length > 1 ? `
+        <label class="importado__campo">Qué costeo
+          <select id="sel-bandeja">${opciones}</select>
+        </label>` : ''}
+
+      ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
+
+      ${estimando ? `
+        <label class="importado__campo">Relleno para estimar
           <select id="relleno-import">
-            ${[10, 15, 20, 25, 40, 60, 100].map((v) => `<option value="${v}"${v === rellenoPct ? ' selected' : ''}>${v} %</option>`).join('')}
+            ${[10, 15, 20, 25, 40, 60, 100].map((v) => `<option value="${v}"${v === rellenoSel ? ' selected' : ''}>${v} %</option>`).join('')}
           </select>
         </label>` : ''}
+
       ${(info.avisos || []).map((a) => `<span class="importado__aviso"><strong>Ojo:</strong> ${a}</span>`).join('')}
-      ${!info.segundos ? '<span class="importado__aviso"><strong>Ojo:</strong> el archivo no trae el tiempo de impresión. Escríbelo tú abajo.</span>' : ''}
+      ${!segundos ? '<span class="importado__aviso"><strong>Ojo:</strong> falta el tiempo de impresión. Escríbelo abajo.</span>' : ''}
     </div>`;
 
-  if (necesitaRelleno) {
-    $('relleno-import').addEventListener('change', (ev) => {
-      const v = num(ev.target.value, 15);
-      aplicarImportacion(info, v);
-      tarjetaImportacion(info, v);
-    });
-  }
+  $('sel-bandeja')?.addEventListener('change', (ev) => {
+    bandejaSel = ev.target.value;
+    aplicarImportacion();
+    tarjetaImportacion();
+  });
+
+  $('relleno-import')?.addEventListener('change', (ev) => {
+    rellenoSel = num(ev.target.value, 15);
+    aplicarImportacion();
+    tarjetaImportacion();
+  });
 }
 
 async function manejarArchivo(archivo) {
@@ -299,11 +375,13 @@ async function manejarArchivo(archivo) {
   caja.className = 'importado';
   caja.innerHTML = `<div class="importado__cuerpo"><span class="importado__titulo">Leyendo ${archivo.name}…</span></div>`;
   try {
-    const info = await importarArchivo(archivo);
-    const relleno = info.relleno || 15;
-    aplicarImportacion(info, relleno);
-    tarjetaImportacion(info, relleno);
+    importacion = await importarArchivo(archivo);
+    bandejaSel = String(importacion.bandejas[0]?.indice ?? 1);
+    rellenoSel = importacion.relleno != null ? num(importacion.relleno, 15) : 15;
+    aplicarImportacion();
+    tarjetaImportacion();
   } catch (err) {
+    importacion = null;
     caja.className = 'importado importado--error';
     caja.innerHTML = `<div class="importado__cuerpo">
       <span class="importado__titulo">No se pudo leer ${archivo.name}</span>
@@ -501,6 +579,7 @@ function iniciar() {
     pintarFormulario();
     pintar();
     guardar();
+    importacion = null;
     $('importado').hidden = true;
   });
 
