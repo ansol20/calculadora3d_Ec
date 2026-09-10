@@ -11,9 +11,9 @@ el tiempo de impresión; el resto son tus números de taller.
 
 | Partida | Cómo se calcula |
 | --- | --- |
-| Filamento | gramos × (precio de bobina ÷ contenido), con varias bobinas si usas AMS |
+| Filamento | gramos × (precio de bobina ÷ contenido), con varias bobinas si usas AMS. Si te lo venden por kilo, deja 1000 g de contenido |
 | Desperdicio y purga | porcentaje sobre los gramos: torre de purga, faldas, soportes, el resto de bobina |
-| Electricidad | consumo medio en W × horas × tarifa por kWh |
+| Electricidad | consumo medio en W × horas × tarifa por kWh. Hay arquetipos de máquina para arrancar, pero lo exacto lo da un medidor de enchufe |
 | Máquina | depreciación (precio ÷ vida útil) + mantenimiento anual repartido entre las horas que imprimes al año |
 | Consumibles | valor por hora: laca, alcohol, lijas, guantes, silica |
 | Mano de obra | minutos de preparación y post-proceso × tu tarifa por hora |
@@ -31,7 +31,8 @@ el tiempo de impresión; el resto son tus números de taller.
 | --- | --- |
 | `.3mf` de Bambu Studio u Orca | `Metadata/slice_info.config`: peso y tiempo reales, un renglón por filamento, más la miniatura de la placa |
 | `.3mf` de PrusaSlicer | `Metadata/Slic3r_PE.config`: tipo de material, densidad y precio configurado |
-| `.3mf` sin laminar | volumen de la malla en `3D/3dmodel.model` y una estimación por relleno, claramente marcada como aproximada |
+| `.3mf` de Creality Print | `Metadata/project_settings.config`: impresora, material, relleno, boquilla y perímetros |
+| `.3mf` sin laminar (MakerWorld) | mide la geometría siguiendo las mallas externas (`p:path` → `3D/Objects/*.model`) y estima los gramos con las paredes y el relleno reales |
 | `.gcode` | comentarios de totales de PrusaSlicer, Orca, Bambu Studio y Cura |
 
 El ZIP se lee en el navegador con `DecompressionStream`, sin librerías y sin
@@ -58,7 +59,7 @@ assets/estilos.css    tokens de color (claro y oscuro), layout y estilos de impr
 assets/calc.js        motor de cálculo, funciones puras y probadas
 assets/importar.js    lector de ZIP, .3mf y G-code
 assets/app.js         wiring: formulario, ticket, perfiles guardados
-tests/calc.test.mjs   19 pruebas con node:test
+tests/                25 pruebas con node:test
 tools/build.mjs       empaquetado a un solo archivo
 ```
 

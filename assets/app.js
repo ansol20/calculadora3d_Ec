@@ -1,9 +1,9 @@
 /** Interfaz de la calculadora: lee el formulario, calcula y pinta el ticket. */
 import {
   calcular, formatoDuracion, num,
-  MATERIALES, MEDIOS_COBRO, RETENCIONES, VALORES_INICIALES,
+  MATERIALES, MEDIOS_COBRO, RETENCIONES, TIPOS_IMPRESORA, VALORES_INICIALES,
 } from './calc.js';
-import { importarArchivo, gramosDesdeVolumen } from './importar.js';
+import { importarArchivo, estimarGramos } from './importar.js';
 
 const $ = (id) => document.getElementById(id);
 const CLAVE_ESTADO = 'costeo3d-ec:estado';
@@ -48,6 +48,15 @@ function poblarSelects() {
     medio.append(o);
   });
 
+  const tipo = $('tipoImpresora');
+  tipo.innerHTML = '<option value="">Elige para autocompletar…</option>';
+  for (const t of TIPOS_IMPRESORA) {
+    const o = document.createElement('option');
+    o.value = String(t.potenciaW);
+    o.textContent = `${t.etiqueta} — ${t.potenciaW} W`;
+    tipo.append(o);
+  }
+
   for (const [id, opciones] of [['retRentaPct', RETENCIONES.renta], ['retIvaPct', RETENCIONES.iva]]) {
     const sel = $(id);
     for (const o of opciones) {
@@ -73,11 +82,11 @@ function pintarMateriales() {
         <span class="campo__control"><input type="text" id="mat-nombre-${i}" list="lista-materiales" data-m="nombre" autocomplete="off"></span>
       </label>
       <label class="campo">
-        <span class="campo__nombre">Bobina</span>
+        <span class="campo__nombre">Precio bobina</span>
         <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="mat-precio-${i}" data-m="precioBobina" min="0" step="0.5" inputmode="decimal"></span>
       </label>
       <label class="campo">
-        <span class="campo__nombre">Contenido</span>
+        <span class="campo__nombre">Bobina de</span>
         <span class="campo__control"><input type="number" id="mat-peso-${i}" data-m="pesoBobina" min="1" step="50" inputmode="numeric"><span class="campo__unidad">g</span></span>
       </label>
       <label class="campo">
@@ -120,7 +129,9 @@ function pintarFormulario() {
 function leerFormulario() {
   for (const el of document.querySelectorAll('[data-campo]')) {
     const clave = el.dataset.campo;
-    estado[clave] = el.type === 'checkbox' ? el.checked : num(el.value);
+    if (el.type === 'checkbox') estado[clave] = el.checked;
+    else if (el.type === 'text') estado[clave] = el.value;
+    else estado[clave] = num(el.value);
   }
   leerMateriales();
 }
@@ -180,7 +191,7 @@ function pintar() {
   r.unidad.detalleMaterial.forEach((m, i) => {
     const el = $(`mat-resumen-${i}`);
     if (el) el.textContent = m.gramos > 0
-      ? `${numero(m.gramos, 1)} g · ${usdFino.format(m.precioGramo)}/g · ${dinero(m.costo)} por pieza`
+      ? `${numero(m.gramos, 1)} g · ${dinero(m.precioGramo * 1000)} el kg · ${dinero(m.costo)} por pieza`
       : 'Sin consumo';
   });
 
@@ -217,13 +228,24 @@ function aplicarImportacion(info, rellenoPct) {
     }];
   } else if (info.volumenCm3 > 0) {
     const densidad = info.densidad || preset(info.tipo3d)?.densidad || 1.24;
-    const gramos = gramosDesdeVolumen(info.volumenCm3, densidad, rellenoPct);
+    const gramos = estimarGramos({
+      volumenCm3: info.volumenCm3,
+      superficieCm2: info.superficieCm2,
+      densidad,
+      rellenoPct,
+      paredes: info.paredes,
+      boquilla: info.boquilla,
+    });
     estado.materiales = [{
       nombre: info.tipo3d || 'PLA',
       precioBobina: info.precioKg || preset(info.tipo3d)?.precioBobina || 22,
       pesoBobina: 1000,
       gramos: Math.round(gramos * 10) / 10,
     }];
+  }
+
+  if (info.impresora && !String(estado.modeloImpresora || '').trim()) {
+    estado.modeloImpresora = info.impresora;
   }
 
   pintarFormulario();
@@ -239,9 +261,10 @@ function tarjetaImportacion(info, rellenoPct) {
   const datos = [];
   if (info.segundos > 0) datos.push(`⏱ ${formatoDuracion(info.segundos / 3600)}`);
   if (info.gramos > 0) datos.push(`⚖ ${numero(info.gramos, 1)} g`);
-  if (info.volumenCm3 > 0) datos.push(`▣ ${numero(info.volumenCm3, 1)} cm³ de modelo`);
-  if (info.piezas > 1) datos.push(`× ${info.piezas} objetos`);
-  if (info.impresora) datos.push(info.impresora);
+  if (info.volumenCm3 > 0) datos.push(`▣ ${numero(info.volumenCm3, 1)} cm³ de plástico`);
+  if (info.piezas > 1) datos.push(`× ${info.piezas} objetos en la placa`);
+  if (info.tipo3d) datos.push(info.tipo3d);
+  if (info.impresora) datos.push(`🖨 ${info.impresora}`);
 
   const necesitaRelleno = !info.gramos && info.volumenCm3 > 0;
   caja.innerHTML = `
@@ -340,9 +363,12 @@ function textoCotizacion() {
 
   const linea = (a, b) => `${a.padEnd(24, ' ')}${dinero(b).padStart(11, ' ')}`;
 
+  const impresora = String(estado.modeloImpresora || '').trim();
+
   return [
     'COTIZACIÓN — IMPRESIÓN 3D',
     `${r.cantidad} ${r.cantidad === 1 ? 'pieza' : 'piezas'} · ${materiales || 'sin material'} · ${formatoDuracion(r.tiempoH)} por pieza`,
+    impresora ? `Impresora: ${impresora}` : null,
     ''.padEnd(35, '-'),
     ...filas.map(([a, b]) => linea(a, b)),
     linea('Subtotal', r.pedido.precioSinIva),
@@ -391,6 +417,12 @@ function iniciar() {
     const v = num($('comisionPct').value);
     const coincide = MEDIOS_COBRO.find((m) => m.valor === v);
     $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  });
+
+  $('tipoImpresora').addEventListener('change', (ev) => {
+    if (!ev.target.value) return;
+    $('potenciaW').value = ev.target.value;
+    alCambiar();
   });
 
   $('btn-material').addEventListener('click', () => {

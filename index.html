@@ -50,6 +50,7 @@
     <section class="bloque">
       <h2 class="bloque__titulo"><span class="eyebrow">Material</span>Filamento</h2>
       <div id="materiales" class="materiales"></div>
+      <p class="nota">Si te lo venden por kilo, deja <span class="mono">1000 g</span> de contenido y escribe el precio del kilo. Para bobinas de 750 g o 250 g, cambia el contenido y la calculadora saca el precio por gramo real.</p>
       <button type="button" class="btn btn--fantasma" id="btn-material">+ Añadir otro filamento</button>
       <div class="campos campos--2">
         <label class="campo">
@@ -78,21 +79,33 @@
           <span class="campo__control"><input type="number" id="minutos" data-campo="minutos" min="0" max="59" step="1" inputmode="numeric"><span class="campo__unidad">min</span></span>
         </label>
         <label class="campo">
-          <span class="campo__nombre">Consumo medio</span>
-          <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
-          <span class="campo__pista">Cama caliente incluida.</span>
+          <span class="campo__nombre">Tarifa eléctrica</span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaKwh" data-campo="tarifaKwh" min="0" step="0.001" inputmode="decimal"><span class="campo__unidad">/ kWh</span></span>
         </label>
       </div>
-      <label class="campo">
-        <span class="campo__nombre">Tarifa eléctrica</span>
-        <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaKwh" data-campo="tarifaKwh" min="0" step="0.001" inputmode="decimal"><span class="campo__unidad">/ kWh</span></span>
-        <span class="campo__pista">Residencial en Ecuador ronda $0,092–0,10; comercial y talleres, $0,10–0,12. Revísalo en tu planilla.</span>
-      </label>
+      <p class="nota">La tarifa residencial en Ecuador ronda $0,092–0,10 por kWh y la comercial sube a $0,10–0,12, pero cambia por empresa eléctrica y por rango de consumo. Míralo en tu planilla.</p>
     </section>
 
     <!-- ─── Máquina ───────────────────────────────────────────────────── -->
     <section class="bloque">
-      <h2 class="bloque__titulo"><span class="eyebrow">Máquina</span>Depreciación y mantenimiento</h2>
+      <h2 class="bloque__titulo"><span class="eyebrow">Máquina</span>Tu impresora</h2>
+      <div class="campos campos--2">
+        <label class="campo">
+          <span class="campo__nombre">Modelo</span>
+          <span class="campo__control"><input type="text" id="modeloImpresora" data-campo="modeloImpresora" placeholder="Creality SPARKX i7" autocomplete="off"></span>
+          <span class="campo__pista">Se llena solo si tu .3mf trae la impresora. Sale en la cotización.</span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Tipo de máquina</span>
+          <span class="campo__control campo__control--select"><select id="tipoImpresora"></select></span>
+          <span class="campo__pista">Solo rellena el consumo de abajo con un valor de arranque.</span>
+        </label>
+      </div>
+      <label class="campo">
+        <span class="campo__nombre">Consumo medio mientras imprime</span>
+        <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
+        <span class="campo__pista">Es el promedio del ciclo completo, no el pico: la cama arranca fuerte y luego solo mantiene. Un medidor de enchufe de $10 te da el número exacto de tu máquina.</span>
+      </label>
       <div class="campos campos--2">
         <label class="campo">
           <span class="campo__nombre">Costo de la impresora</span>

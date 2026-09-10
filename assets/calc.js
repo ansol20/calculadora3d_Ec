@@ -43,6 +43,19 @@ export const RETENCIONES = {
   ],
 };
 
+/**
+ * Arquetipos de impresora con su consumo medio aproximado. No son fichas
+ * técnicas: son órdenes de magnitud medidos en máquinas parecidas para que
+ * tengas de dónde partir mientras consigues un medidor de consumo.
+ */
+export const TIPOS_IMPRESORA = [
+  { etiqueta: 'FDM abierta 220×220 (Ender, Kobra)', potenciaW: 110 },
+  { etiqueta: 'FDM rápida CoreXY 250×250 (K1, A1, P1S)', potenciaW: 140 },
+  { etiqueta: 'FDM con cámara calefactada (K2, X1C)', potenciaW: 200 },
+  { etiqueta: 'FDM de formato grande 350×350', potenciaW: 250 },
+  { etiqueta: 'Resina LCD', potenciaW: 55 },
+];
+
 /** Comisiones referenciales de los medios de cobro más usados en Ecuador. */
 export const MEDIOS_COBRO = [
   { etiqueta: 'Efectivo o transferencia', valor: 0 },
@@ -58,6 +71,7 @@ export const VALORES_INICIALES = {
   horas: 4,
   minutos: 30,
   cantidad: 1,
+  modeloImpresora: '',
   potenciaW: 120,
   tarifaKwh: 0.10,
   precioImpresora: 480,

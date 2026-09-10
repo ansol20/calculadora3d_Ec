@@ -158,23 +158,74 @@ function leerConfigPrusa(txt) {
   };
 }
 
-/** Volumen real de la malla del 3mf, respetando las transformadas del plato. */
-function volumenModelo(xml) {
-  const doc = new DOMParser().parseFromString(xml, 'application/xml');
-  if (doc.querySelector('parsererror')) return null;
+/**
+ * project_settings.config: el JSON de ajustes que guardan Creality Print,
+ * Orca y Bambu Studio. Aunque el proyecto no esté laminado, aquí están la
+ * impresora, el material y el relleno con los que se abrió.
+ */
+function leerAjustes(json) {
+  let d;
+  try { d = JSON.parse(json); } catch { return null; }
+  if (!d || typeof d !== 'object') return null;
+  const primero = (v) => (Array.isArray(v) ? v[0] : v);
+  const numero = (v) => {
+    const n = parseFloat(String(primero(v) ?? '').replace('%', ''));
+    return Number.isFinite(n) ? n : null;
+  };
+  const tipo = primero(d.filament_type);
+  const impresora = primero(d.printer_model) || primero(d.printer_settings_id);
+  if (!tipo && !impresora) return null;
+  return {
+    tipo3d: tipo || null,
+    densidad: numero(d.filament_density),
+    precioKg: numero(d.filament_cost),
+    relleno: numero(d.sparse_infill_density),
+    paredes: numero(d.wall_loops) || 2,
+    boquilla: numero(d.nozzle_diameter) || 0.4,
+    alturaCapa: numero(d.layer_height),
+    impresora: impresora || null,
+  };
+}
 
-  const unidad = doc.documentElement.getAttribute('unit') || 'millimeter';
-  const aMm = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 }[unidad] ?? 1;
+/**
+ * Volumen y superficie de la malla, siguiendo las partes externas.
+ *
+ * Los proyectos de MakerWorld abiertos en Creality Print, Bambu Studio u Orca
+ * no guardan las mallas dentro de 3dmodel.model: cada objeto vive en su propio
+ * archivo bajo 3D/Objects/ y se referencia con el atributo p:path de la
+ * extensión "production" del formato. Hay que ir a buscarlos.
+ */
+async function medirModelo(zip, rutaRaiz) {
+  const partes = new Map();
 
-  const volumenBruto = (objeto) => {
+  const cargarParte = async (ruta) => {
+    const clave = ruta.replace(/^\//, '');
+    if (partes.has(clave)) return partes.get(clave);
+    let objetos = new Map();
+    const datos = await leerEntrada(zip, clave);
+    if (datos) {
+      const doc = new DOMParser().parseFromString(texto(datos), 'application/xml');
+      if (!doc.querySelector('parsererror')) {
+        for (const o of doc.querySelectorAll('resources > object')) objetos.set(o.getAttribute('id'), o);
+        partes.set(clave, { doc, objetos });
+        return partes.get(clave);
+      }
+    }
+    partes.set(clave, { doc: null, objetos });
+    return partes.get(clave);
+  };
+
+  /** Volumen (mm³) y superficie (mm²) de la malla propia de un objeto. */
+  const medirMalla = (objeto) => {
     const malla = objeto.querySelector(':scope > mesh');
-    if (!malla) return 0;
+    if (!malla) return { v: 0, a: 0 };
     const vs = [...malla.querySelectorAll('vertices > vertex')].map((v) => [
       parseFloat(v.getAttribute('x')) || 0,
       parseFloat(v.getAttribute('y')) || 0,
       parseFloat(v.getAttribute('z')) || 0,
     ]);
     let v6 = 0;
+    let a2 = 0;
     for (const t of malla.querySelectorAll('triangles > triangle')) {
       const a = vs[+t.getAttribute('v1')];
       const b = vs[+t.getAttribute('v2')];
@@ -183,10 +234,17 @@ function volumenModelo(xml) {
       v6 += a[0] * (b[1] * c[2] - c[1] * b[2])
           - a[1] * (b[0] * c[2] - c[0] * b[2])
           + a[2] * (b[0] * c[1] - c[0] * b[1]);
+      const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+      const w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+      const cx = u[1] * w[2] - u[2] * w[1];
+      const cy = u[2] * w[0] - u[0] * w[2];
+      const cz = u[0] * w[1] - u[1] * w[0];
+      a2 += Math.hypot(cx, cy, cz);
     }
-    return Math.abs(v6) / 6;
+    return { v: Math.abs(v6) / 6, a: a2 / 2 };
   };
 
+  /** Factor de escala de una transformada 3mf (12 números, 4×3). */
   const escalaDe = (attr) => {
     if (!attr) return 1;
     const n = attr.trim().split(/\s+/).map(Number);
@@ -197,44 +255,71 @@ function volumenModelo(xml) {
     return Math.abs(det) || 1;
   };
 
-  const objetos = new Map();
-  for (const o of doc.querySelectorAll('resources > object')) {
-    objetos.set(o.getAttribute('id'), o);
-  }
+  const medirObjeto = async (ruta, id, visitados) => {
+    const marca = `${ruta}#${id}`;
+    if (visitados.has(marca)) return { v: 0, a: 0 };
+    visitados.add(marca);
+    const parte = await cargarParte(ruta);
+    const objeto = parte.objetos.get(id);
+    if (!objeto) return { v: 0, a: 0 };
 
-  const volumenDe = (id, visitados = new Set()) => {
-    if (visitados.has(id)) return 0;
-    visitados.add(id);
-    const o = objetos.get(id);
-    if (!o) return 0;
-    let v = volumenBruto(o);
-    for (const c of o.querySelectorAll(':scope > components > component')) {
-      v += volumenDe(c.getAttribute('objectid'), visitados) * escalaDe(c.getAttribute('transform'));
+    const propio = medirMalla(objeto);
+    let v = propio.v;
+    let a = propio.a;
+
+    for (const c of objeto.querySelectorAll(':scope > components > component')) {
+      const rutaHijo = c.getAttribute('p:path') || c.getAttributeNS('*', 'path') || ruta;
+      const escala = escalaDe(c.getAttribute('transform'));
+      const hijo = await medirObjeto(rutaHijo, c.getAttribute('objectid'), visitados);
+      v += hijo.v * escala;
+      a += hijo.a * escala ** (2 / 3);
     }
-    return v;
+    return { v, a };
   };
 
-  let total = 0;
+  const raiz = await cargarParte(rutaRaiz);
+  if (!raiz.doc) return null;
+
+  const unidad = raiz.doc.documentElement.getAttribute('unit') || 'millimeter';
+  const aMm = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 }[unidad] ?? 1;
+
+  let mm3 = 0;
+  let mm2 = 0;
   let piezas = 0;
-  for (const item of doc.querySelectorAll('build > item')) {
-    total += volumenDe(item.getAttribute('objectid')) * escalaDe(item.getAttribute('transform'));
+  const items = [...raiz.doc.querySelectorAll('build > item')];
+  for (const item of items) {
+    if (item.getAttribute('printable') === '0') continue;
+    const escala = escalaDe(item.getAttribute('transform'));
+    const m = await medirObjeto(rutaRaiz, item.getAttribute('objectid'), new Set());
+    mm3 += m.v * escala;
+    mm2 += m.a * escala ** (2 / 3);
     piezas++;
   }
-  if (!piezas) for (const id of objetos.keys()) { total += volumenDe(id); piezas++; }
+  if (!piezas) {
+    for (const id of raiz.objetos.keys()) {
+      const m = await medirObjeto(rutaRaiz, id, new Set());
+      mm3 += m.v;
+      mm2 += m.a;
+      piezas++;
+    }
+  }
 
-  const mm3 = total * aMm ** 3;
-  return mm3 > 0 ? { cm3: mm3 / 1000, piezas } : null;
+  if (!(mm3 > 0)) return null;
+  return { cm3: (mm3 * aMm ** 3) / 1000, cm2: (mm2 * aMm ** 2) / 100, piezas };
 }
 
 /**
- * Estimación gruesa de gramos a partir del volumen sólido de la malla.
- * Asume que perímetros y capas sólidas ocupan ~35 % del volumen y que el
- * resto se llena según el porcentaje de relleno.
+ * Estimación de gramos a partir de la geometría, cuando el .3mf no viene
+ * laminado. Se calcula el cascarón (superficie × espesor de pared) y el
+ * interior se llena según el porcentaje de relleno. Es una aproximación, pero
+ * usa los perímetros y la boquilla reales del proyecto, no un número mágico.
  */
-export function gramosDesdeVolumen(cm3, densidad = 1.24, rellenoPct = 15) {
-  const cascara = 0.35;
-  const fraccion = Math.min(1, cascara + (1 - cascara) * (Math.max(0, rellenoPct) / 100));
-  return cm3 * densidad * fraccion;
+export function estimarGramos({ volumenCm3, superficieCm2 = 0, densidad = 1.24, rellenoPct = 15, paredes = 2, boquilla = 0.4 }) {
+  const espesorCm = (Math.max(1, paredes) * Math.max(0.1, boquilla)) / 10;
+  const cascara = Math.min(volumenCm3, superficieCm2 * espesorCm);
+  const interior = Math.max(0, volumenCm3 - cascara);
+  const solido = cascara + interior * (Math.max(0, rellenoPct) / 100);
+  return solido * densidad;
 }
 
 const miniatura = async (zip) => {
@@ -276,21 +361,40 @@ export async function leer3mf(archivo) {
     }
   }
 
+  const nombreAjustes = buscarEntrada(zip, 'project_settings.config');
+  if (nombreAjustes) {
+    const cfg = leerAjustes(texto(await leerEntrada(zip, nombreAjustes)));
+    if (cfg) {
+      resultado.tipo3d = resultado.tipo3d || cfg.tipo3d;
+      resultado.densidad = resultado.densidad || cfg.densidad;
+      resultado.precioKg = resultado.precioKg || cfg.precioKg;
+      resultado.relleno = resultado.relleno ?? cfg.relleno;
+      resultado.paredes = cfg.paredes;
+      resultado.boquilla = cfg.boquilla;
+      resultado.alturaCapa = cfg.alturaCapa;
+      resultado.impresora = resultado.impresora || cfg.impresora;
+      resultado.origen = resultado.origen || 'ajustes del proyecto';
+    }
+  }
+
   if (!resultado.gramos) {
     const nombreModelo = buscarEntrada(zip, '3D/3dmodel.model');
     if (nombreModelo) {
-      const vol = volumenModelo(texto(await leerEntrada(zip, nombreModelo)));
-      if (vol) {
-        resultado.volumenCm3 = vol.cm3;
-        resultado.piezas = vol.piezas;
-        resultado.avisos.push('Este .3mf no trae el laminado, así que los gramos son una estimación a partir del volumen del modelo.');
+      const medida = await medirModelo(zip, nombreModelo);
+      if (medida) {
+        resultado.volumenCm3 = medida.cm3;
+        resultado.superficieCm2 = medida.cm2;
+        resultado.piezas = medida.piezas;
+        resultado.avisos.push(medida.piezas > 1
+          ? `El proyecto no está laminado: los gramos son una estimación de los ${medida.piezas} objetos de la placa. Para el dato exacto, lamina en Creality Print y guarda el proyecto otra vez.`
+          : 'El proyecto no está laminado: los gramos son una estimación a partir de la geometría. Para el dato exacto, lamina y guarda el proyecto otra vez.');
       }
     }
   }
 
   resultado.miniatura = await miniatura(zip);
   if (!resultado.gramos && !resultado.volumenCm3) {
-    throw new Error('No se encontró información de material en el archivo. Guarda el proyecto laminado (Bambu Studio u Orca) o escribe los gramos a mano.');
+    throw new Error('El archivo no trae mallas ni datos de laminado que se puedan medir. Escribe los gramos y el tiempo a mano.');
   }
   return resultado;
 }
