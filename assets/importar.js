@@ -435,12 +435,10 @@ export async function leer3mf(archivo) {
     r.origen = 'del laminado del proyecto (datos reales)';
   }
 
-  // Geometría, para estimar cuando no hay laminado.
-  let porObjeto = null;
-  if (!laminado) {
-    const rutaMalla = buscarEntrada(zip, '3D/3dmodel.model');
-    if (rutaMalla) porObjeto = await medirModelo(zip, rutaMalla);
-  }
+  // La geometría se mide siempre: sin laminado sirve para estimar, y con
+  // laminado sirve para repartir el peso real entre los objetos de la bandeja.
+  const rutaMalla = buscarEntrada(zip, '3D/3dmodel.model');
+  const porObjeto = rutaMalla ? await medirModelo(zip, rutaMalla) : null;
 
   // Bandejas exportadas como G-code dentro del propio .3mf.
   const gcodes = [...zip.entradas.keys()].filter((n) => /plate_\d+\.gcode$/i.test(n)).sort();
@@ -453,52 +451,98 @@ export async function leer3mf(archivo) {
     1,
   );
 
+  // Cuánto plástico lleva cada objeto según su geometría. Es el reparto que
+  // permite marcar objetos sueltos de una bandeja.
+  const volumenImpreso = (m) => estimarGramos({
+    volumenCm3: m.cm3,
+    superficieCm2: m.cm2,
+    densidad: 1,
+    rellenoPct: r.relleno ?? 15,
+    paredes: r.paredes,
+    boquilla: r.boquilla,
+  });
+
   for (let i = 0; i < cuantas; i++) {
-    const numero = i + 1;
-    const deModelo = modelo?.bandejas.find((b) => b.indice === numero) || modelo?.bandejas[i] || null;
-    const deLaminado = laminado?.find((b) => b.indice === numero) || laminado?.[i] || null;
+    const indice = i + 1;
+    const deModelo = modelo?.bandejas.find((b) => b.indice === indice) || modelo?.bandejas[i] || null;
+    const deLaminado = laminado?.find((b) => b.indice === indice) || laminado?.[i] || null;
 
     const bandeja = {
-      indice: numero,
+      indice,
       nombre: deModelo?.nombre || '',
-      objetos: deModelo?.objetos || [],
       gramos: deLaminado?.gramos || 0,
       segundos: deLaminado?.segundos || 0,
       metros: deLaminado?.metros || 0,
       filamentos: deLaminado?.filamentos || [],
-      miniatura: await imagenDe(zip, deModelo?.miniaturaRuta || `Metadata/plate_${numero}.png`),
+      estimado: !deLaminado,
+      objetos: [],
+      miniatura: await imagenDe(zip, deModelo?.miniaturaRuta || `Metadata/plate_${indice}.png`),
     };
 
+    // Bandeja exportada como G-code dentro del propio .3mf.
     if (!bandeja.gramos && gcodes.length) {
-      const ruta = gcodes.find((n) => n.includes(`plate_${numero}.`)) || (cuantas === 1 ? gcodes[0] : null);
+      const ruta = gcodes.find((n) => n.includes(`plate_${indice}.`)) || (cuantas === 1 ? gcodes[0] : null);
       const entrada = ruta ? zip.entradas.get(ruta) : null;
       if (entrada && entrada.tamOriginal < 120 * 1024 * 1024) {
         const totales = totalesDeGcode(await leerTexto(zip, ruta));
-        Object.assign(bandeja, totales);
-        if (totales.gramos) { r.laminado = true; r.origen = 'del G-code de la bandeja (datos reales)'; }
+        if (totales.gramos) {
+          Object.assign(bandeja, totales, { estimado: false });
+          r.laminado = true;
+          r.origen = 'del G-code de la bandeja (datos reales)';
+        }
       }
     }
 
-    if (!bandeja.gramos && porObjeto) {
-      const ids = deModelo?.objetosId?.length ? deModelo.objetosId : [...porObjeto.keys()];
-      let cm3 = 0;
-      let cm2 = 0;
-      let piezas = 0;
-      for (const id of ids) {
-        const m = porObjeto.get(id);
-        if (!m) continue;
-        cm3 += m.cm3;
-        cm2 += m.cm2;
-        piezas++;
+    // Objetos de la bandeja, con su volumen medido.
+    const ids = deModelo?.objetosId?.length
+      ? deModelo.objetosId
+      : (cuantas === 1 && porObjeto ? [...porObjeto.keys()] : []);
+
+    const medidos = ids.map((id) => ({
+      id,
+      nombre: modelo?.nombres.get(id) || `Objeto ${id}`,
+      medida: porObjeto?.get(id) || null,
+    })).filter((o) => o.medida);
+
+    const reparto = medidos.map((o) => volumenImpreso(o.medida));
+    const sumaReparto = reparto.reduce((s, v) => s + v, 0);
+
+    if (medidos.length && sumaReparto > 0) {
+      const densidad = r.densidad || 1.24;
+      bandeja.objetos = medidos.map((o, k) => {
+        const parte = reparto[k] / sumaReparto;
+        const gramos = bandeja.gramos > 0 ? bandeja.gramos * parte : reparto[k] * densidad;
+        return {
+          id: o.id,
+          nombre: o.nombre,
+          gramos,
+          segundos: bandeja.segundos * parte,
+          volumenCm3: o.medida.cm3,
+          superficieCm2: o.medida.cm2,
+          estimado: bandeja.gramos <= 0,
+        };
+      });
+      if (!bandeja.gramos) {
+        bandeja.gramos = bandeja.objetos.reduce((s, o) => s + o.gramos, 0);
+        bandeja.estimado = true;
       }
-      if (cm3 > 0) {
-        bandeja.volumenCm3 = cm3;
-        bandeja.superficieCm2 = cm2;
-        if (!bandeja.objetos.length) bandeja.objetos = Array.from({ length: piezas }, (_, k) => `Objeto ${k + 1}`);
-      }
+    } else if (bandeja.gramos > 0) {
+      // Sin geometría utilizable, la bandeja entera es un solo bloque.
+      bandeja.objetos = [{
+        id: `b${indice}`,
+        nombre: `Bandeja ${indice} completa`,
+        gramos: bandeja.gramos,
+        segundos: bandeja.segundos,
+        estimado: false,
+      }];
     }
 
-    if (bandeja.gramos || bandeja.volumenCm3 || bandeja.objetos.length) r.bandejas.push(bandeja);
+    if (bandeja.objetos.length) r.bandejas.push(bandeja);
+  }
+
+  // Los gramos por objeto se reparten según el volumen, no según el G-code.
+  if (r.laminado && r.bandejas.some((b) => b.objetos.length > 1)) {
+    r.avisos.push('El peso de cada objeto se reparte según su volumen, así que marcar objetos sueltos da un número aproximado. El total de la bandeja completa sí es el exacto del laminador.');
   }
 
   r.miniatura = r.bandejas[0]?.miniatura || await imagenDe(zip, 'Metadata/plate_1.png');
@@ -539,7 +583,10 @@ export async function leerGcode(archivo) {
     throw new Error('No se encontraron los totales del laminado en el G-code.');
   }
 
-  r.bandejas.push({ indice: 1, nombre: '', objetos: [], filamentos: [], miniatura: null, ...totales });
+  r.bandejas.push({
+    indice: 1, nombre: '', filamentos: [], miniatura: null, estimado: false, ...totales,
+    objetos: [{ id: 'g1', nombre: 'Toda la impresión', gramos: totales.gramos, segundos: totales.segundos, estimado: false }],
+  });
   return r;
 }
 

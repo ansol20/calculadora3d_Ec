@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  calcular, costoHoraMaquina, costoMaterial, formatoDuracion, num, VALORES_INICIALES,
+  calcular, costoHoraMaquina, costoMaterial, formatoDuracion, num, precioConMargen, VALORES_INICIALES,
 } from '../assets/calc.js';
 
 const cerca = (a, b, tol = 1e-9) => assert.ok(Math.abs(a - b) < tol, `${a} ≠ ${b}`);
@@ -154,4 +154,26 @@ test('formatoDuracion redondea a minutos', () => {
   assert.equal(formatoDuracion(4.5), '4 h 30 min');
   assert.equal(formatoDuracion(2), '2 h');
   assert.equal(formatoDuracion(0.25), '15 min');
+});
+
+test('el margen también se puede fijar como monto en dólares', () => {
+  const r = calcular({ ...base, margenModo: 'monto', margenMonto: 5 });
+  cerca(r.pedido.utilidad, 5);
+  cerca(r.pedido.precioSinIva, r.pedido.costoTotal + 5);
+});
+
+test('el margen en monto ignora el porcentaje', () => {
+  const a = calcular({ ...base, margenModo: 'monto', margenMonto: 3, margenPct: 90 });
+  const b = calcular({ ...base, margenModo: 'monto', margenMonto: 3, margenPct: 10 });
+  cerca(a.pedido.total, b.pedido.total);
+});
+
+test('precioConMargen no altera la entrada original', () => {
+  const entrada = { ...base, margenPct: 40, cobraIva: true, ivaPct: 15 };
+  const copia = JSON.stringify(entrada);
+  const p60 = precioConMargen(entrada, 60);
+  const p20 = precioConMargen(entrada, 20);
+  assert.equal(JSON.stringify(entrada), copia);
+  assert.ok(p60 > p20);
+  cerca(p60, calcular({ ...entrada, margenPct: 60 }).pedido.total);
 });

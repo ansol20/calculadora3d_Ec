@@ -88,6 +88,8 @@ export const VALORES_INICIALES = {
   empaqueUnit: 0.35,
   envio: 0,
   margenPct: 45,
+  margenModo: 'pct',
+  margenMonto: 0,
   comisionPct: 0,
   cobraIva: true,
   ivaPct: IVA_EC,
@@ -165,8 +167,12 @@ export function calcular(entrada) {
   const diseno = (noNeg(e.disenoMin) / 60) * noNeg(e.tarifaDiseno);
   const costoTotal = costoUnitario * cantidad + diseno;
 
+  // El margen se puede fijar como porcentaje sobre el costo o como un monto
+  // en dólares, que es como mucha gente cotiza de verdad ("le pongo $5").
   const margenPct = noNeg(e.margenPct);
-  const utilidadBruta = costoTotal * (margenPct / 100);
+  const utilidadBruta = e.margenModo === 'monto'
+    ? noNeg(e.margenMonto)
+    : costoTotal * (margenPct / 100);
   const envio = noNeg(e.envio);
 
   // El envío se traslada al cliente sin margen; la comisión de la pasarela se
@@ -244,6 +250,14 @@ export function calcular(entrada) {
     },
     desglose,
   };
+}
+
+/**
+ * Precio final que saldría con otro margen, sin tocar el resto de la entrada.
+ * Sirve para proponer escalones de precio antes de decidir.
+ */
+export function precioConMargen(entrada, margenPct) {
+  return calcular({ ...entrada, margenModo: 'pct', margenPct }).pedido.total;
 }
 
 /** "4 h 30 min" a partir de horas decimales. */

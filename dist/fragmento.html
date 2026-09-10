@@ -502,6 +502,130 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 }
 .aviso--visible { opacity: 1; transform: translate(-50%, 0); }
 
+/* ── Ayuda contextual ─────────────────────────────────────────────────── */
+.campo__nombre { display: flex; align-items: center; gap: 5px; }
+.campo__nombre label { cursor: default; }
+
+.ayuda {
+  position: relative;
+  flex: none; width: 15px; height: 15px; padding: 0;
+  border: 1px solid var(--linea-fuerte); border-radius: 50%;
+  background: none; color: var(--tinta-suave);
+  font: 600 10px/1 var(--sans); cursor: help;
+}
+.ayuda:hover, .ayuda:focus-visible { border-color: var(--acento); color: var(--acento); }
+.ayuda__globo {
+  /* display:none y no visibility: un globo oculto pero maquetado ensancharía
+     la página, y en móvil eso saca la barra de desplazamiento horizontal. */
+  display: none;
+  position: absolute; left: 50%; bottom: calc(100% + 7px); z-index: 30;
+  width: max-content; max-width: min(260px, calc(100vw - 40px));
+  transform: translateX(-50%);
+  padding: 8px 10px; border-radius: var(--radio-s);
+  background: var(--tinta); color: var(--fondo);
+  font: 400 11.5px/1.45 var(--sans); text-align: left; font-weight: 400;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, .6);
+}
+.ayuda__globo::after {
+  content: ""; position: absolute; top: 100%; left: 50%;
+  margin-left: -5px; border: 5px solid transparent; border-top-color: var(--tinta);
+}
+.ayuda:hover .ayuda__globo,
+.ayuda:focus-visible .ayuda__globo {
+  display: block;
+  animation: aparecer .12s ease-out;
+}
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+
+/* En pantallas angostas el globo se ancla abajo, como una nota al pie. */
+@media (max-width: 760px) {
+  .ayuda__globo {
+    position: fixed; inset: auto 16px 16px 16px;
+    width: auto; max-width: none; transform: none;
+    font-size: 12.5px; padding: 12px 14px;
+  }
+  .ayuda__globo::after { display: none; }
+}
+
+/* ── Secciones plegables ──────────────────────────────────────────────── */
+.bloque--plegable { padding: 0; gap: 0; }
+.bloque--plegable > summary {
+  padding: 15px 18px;
+  cursor: pointer; list-style: none;
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  column-gap: 12px;
+}
+.bloque--plegable > summary::-webkit-details-marker { display: none; }
+.bloque--plegable > summary .eyebrow { grid-column: 1; }
+.bloque--plegable > summary::after {
+  content: "";
+  grid-column: 2; grid-row: 1 / span 2;
+  width: 8px; height: 8px; margin-right: 2px;
+  border-right: 1.5px solid var(--tinta-suave); border-bottom: 1.5px solid var(--tinta-suave);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform .18s ease;
+}
+.bloque--plegable[open] > summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+.bloque--plegable > summary:hover { background: var(--panel-2); }
+.bloque--plegable[open] > summary { border-bottom: 1px solid var(--linea); }
+.resumen {
+  grid-column: 1; grid-row: 3;
+  font: 400 11.5px/1.4 var(--mono); color: var(--tinta-suave);
+  overflow-wrap: anywhere;
+}
+.bloque__cuerpo { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+/* ── Escalones de precio ──────────────────────────────────────────────── */
+.escalones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.escalon {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 11px; text-align: left;
+  border: 1px solid var(--linea); border-radius: var(--radio-s);
+  background: var(--panel-2); cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.escalon:hover { border-color: var(--acento); }
+.escalon[aria-pressed="true"] { border-color: var(--acento); background: var(--acento-claro); }
+.escalon__nombre { font: 500 12px/1.2 var(--sans); color: var(--tinta); }
+.escalon__pct { font: 400 10.5px/1 var(--mono); color: var(--tinta-suave); }
+.escalon__precio { font: 600 16px/1.2 var(--mono); color: var(--tinta); letter-spacing: -.02em; margin-top: 2px; }
+.escalon[aria-pressed="true"] .escalon__precio { color: var(--acento); }
+
+/* ── Selector de objetos del laminado ─────────────────────────────────── */
+.objetos { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.objetos__bandeja {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; margin-top: 4px;
+  background: var(--panel); border: 1px solid var(--linea); border-radius: var(--radio-s);
+  font: 500 12px/1.3 var(--sans);
+}
+.objetos__bandeja .mono { margin-left: auto; font-size: 11.5px; color: var(--tinta-suave); font-weight: 400; }
+.objetos__item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 8px 4px 24px;
+  font-size: 12.5px; cursor: pointer;
+}
+.objetos__item:hover { background: var(--panel); border-radius: var(--radio-s); }
+.objetos__item span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.objetos__item .mono { margin-left: auto; font-size: 11.5px; color: var(--tinta-suave); white-space: nowrap; }
+.objetos input[type="checkbox"] { accent-color: var(--acento); width: 15px; height: 15px; flex: none; margin: 0; }
+.objetos__total {
+  margin-top: 6px; padding: 7px 9px;
+  background: var(--panel); border: 1px solid var(--acento); border-radius: var(--radio-s);
+  font: 500 12.5px/1.3 var(--mono);
+}
+
+.metricas-caja > summary {
+  cursor: pointer; font-size: 12.5px; color: var(--tinta-media);
+  padding: 4px 0; list-style-position: inside;
+}
+.metricas-caja > summary:hover { color: var(--acento); }
+.metricas-caja[open] > summary { margin-bottom: 8px; }
+
+@media (max-width: 560px) {
+  .escalones { grid-template-columns: 1fr; }
+}
+
 </style>
 <header class="cabecera">
   <div class="cabecera__marca">
@@ -522,11 +646,10 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 </header>
 
 <main class="tablero">
-
   <form class="controles" id="formulario" autocomplete="off">
 
-    <!-- ─── Importar laminado ─────────────────────────────────────────── -->
-    <section class="bloque bloque--importar">
+    <!-- ─── Importar ──────────────────────────────────────────────────── -->
+    <section class="bloque">
       <h2 class="bloque__titulo"><span class="eyebrow">Punto de partida</span>Trae los datos del laminador</h2>
       <div class="soltar" id="soltar" tabindex="0" role="button" aria-describedby="soltar-ayuda">
         <svg viewBox="0 0 24 24" aria-hidden="true" class="soltar__icono"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -541,153 +664,52 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
     <section class="bloque">
       <h2 class="bloque__titulo"><span class="eyebrow">Material</span>Filamento</h2>
       <div id="materiales" class="materiales"></div>
-      <p class="nota">Si te lo venden por kilo, deja <span class="mono">1000 g</span> de contenido y escribe el precio del kilo. Para bobinas de 750 g o 250 g, cambia el contenido y la calculadora saca el precio por gramo real.</p>
       <button type="button" class="btn btn--fantasma" id="btn-material">+ Añadir otro filamento</button>
       <div class="campos campos--2">
-        <label class="campo">
-          <span class="campo__nombre">Desperdicio y purga</span>
-          <span class="campo__control"><input type="number" id="desperdicioPct" data-campo="desperdicioPct" min="0" max="60" step="1" inputmode="decimal"><span class="campo__unidad">%</span></span>
-          <span class="campo__pista">Torre de purga, faldas, soportes y el trozo que queda en la bobina.</span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Piezas del pedido</span>
-          <span class="campo__control"><input type="number" id="cantidad" data-campo="cantidad" min="1" step="1" inputmode="numeric"><span class="campo__unidad">u</span></span>
-          <span class="campo__pista">El tiempo y los gramos de arriba son de <em>una</em> pieza.</span>
-        </label>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="desperdicioPct">Desperdicio y purga</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Lo que se va en torre de purga, faldas, soportes y el trozo que queda en la bobina. Con un solo color, 3–5 % es normal; cambiando colores puede pasar del 20 %.</span></button></span>
+          <span class="campo__control"><input type="number" id="desperdicioPct" data-campo="desperdicioPct" min="0" step="1" inputmode="decimal"><span class="campo__unidad">%</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="cantidad">Veces que lo imprimes</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Cuántas copias del mismo trabajo vas a entregar. Si arriba marcaste 7 objetos, poner 2 aquí significa dos juegos completos de esos 7 objetos.</span></button></span>
+          <span class="campo__control"><input type="number" id="cantidad" data-campo="cantidad" min="1" step="1" inputmode="numeric"><span class="campo__unidad">×</span></span>
+        </div>
       </div>
+      <p class="nota">Si te lo venden por kilo, deja <span class="mono">1000 g</span> de contenido y escribe el precio del kilo.</p>
     </section>
 
     <!-- ─── Tiempo y luz ──────────────────────────────────────────────── -->
     <section class="bloque">
       <h2 class="bloque__titulo"><span class="eyebrow">Energía</span>Tiempo de impresión y luz</h2>
       <div class="campos campos--3">
-        <label class="campo">
-          <span class="campo__nombre">Horas</span>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="horas">Horas</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Sale solo de los objetos que marcaste arriba. Si escribes a mano, usa el tiempo que te dice el laminador.</span></button></span>
           <span class="campo__control"><input type="number" id="horas" data-campo="horas" min="0" step="1" inputmode="numeric"><span class="campo__unidad">h</span></span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Minutos</span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="minutos">Minutos</label></span>
           <span class="campo__control"><input type="number" id="minutos" data-campo="minutos" min="0" max="59" step="1" inputmode="numeric"><span class="campo__unidad">min</span></span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Tarifa eléctrica</span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="tarifaKwh">Tarifa eléctrica</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Míralo en tu planilla, dividido kWh consumidos. En Ecuador la residencial ronda $0,092–0,10 y la comercial $0,10–0,12.</span></button></span>
           <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaKwh" data-campo="tarifaKwh" min="0" step="0.001" inputmode="decimal"><span class="campo__unidad">/ kWh</span></span>
-        </label>
+        </div>
       </div>
-      <p class="nota">La tarifa residencial en Ecuador ronda $0,092–0,10 por kWh y la comercial sube a $0,10–0,12, pero cambia por empresa eléctrica y por rango de consumo. Míralo en tu planilla.</p>
     </section>
 
-    <!-- ─── Máquina ───────────────────────────────────────────────────── -->
+    <!-- ─── Precio ────────────────────────────────────────────────────── -->
     <section class="bloque">
-      <h2 class="bloque__titulo"><span class="eyebrow">Máquina</span>Tu impresora</h2>
+      <h2 class="bloque__titulo"><span class="eyebrow">Precio</span>Cuánto le cobras</h2>
+      <div class="escalones" id="escalones"></div>
       <div class="campos campos--2">
-        <label class="campo">
-          <span class="campo__nombre">Modelo</span>
-          <span class="campo__control"><input type="text" id="modeloImpresora" data-campo="modeloImpresora" placeholder="Creality SPARKX i7" autocomplete="off"></span>
-          <span class="campo__pista">Se llena solo si tu .3mf trae la impresora. Sale en la cotización.</span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Tipo de máquina</span>
-          <span class="campo__control campo__control--select"><select id="tipoImpresora"></select></span>
-          <span class="campo__pista">Solo rellena el consumo de abajo con un valor de arranque.</span>
-        </label>
-      </div>
-      <label class="campo">
-        <span class="campo__nombre">Consumo medio mientras imprime</span>
-        <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
-        <span class="campo__pista">Es el promedio del ciclo completo, no el pico: la cama arranca fuerte y luego solo mantiene. Un medidor de enchufe de $10 te da el número exacto de tu máquina.</span>
-      </label>
-      <div class="campos campos--2">
-        <label class="campo">
-          <span class="campo__nombre">Costo de la impresora</span>
-          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="precioImpresora" data-campo="precioImpresora" min="0" step="10" inputmode="decimal"></span>
-          <span class="campo__pista">Puesta en Ecuador: precio + envío + aranceles.</span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Vida útil estimada</span>
-          <span class="campo__control"><input type="number" id="vidaUtilH" data-campo="vidaUtilH" min="1" step="100" inputmode="numeric"><span class="campo__unidad">h</span></span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Mantenimiento al año</span>
-          <span class="campo__control"><input type="number" id="mantenimientoPctAnual" data-campo="mantenimientoPctAnual" min="0" step="1" inputmode="decimal"><span class="campo__unidad">% del equipo</span></span>
-          <span class="campo__pista">Boquillas, correas, PEI, extrusor.</span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Horas que imprime al año</span>
-          <span class="campo__control"><input type="number" id="horasAnuales" data-campo="horasAnuales" min="1" step="50" inputmode="numeric"><span class="campo__unidad">h</span></span>
-        </label>
-      </div>
-      <label class="campo">
-        <span class="campo__nombre">Otros consumibles por hora</span>
-        <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="consumiblesHora" data-campo="consumiblesHora" min="0" step="0.01" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
-        <span class="campo__pista">Laca, alcohol isopropílico, lijas, guantes, silica.</span>
-      </label>
-    </section>
-
-    <!-- ─── Taller ────────────────────────────────────────────────────── -->
-    <section class="bloque">
-      <h2 class="bloque__titulo"><span class="eyebrow">Taller</span>Tu tiempo y el riesgo</h2>
-      <div class="campos campos--3">
-        <label class="campo">
-          <span class="campo__nombre">Preparación</span>
-          <span class="campo__control"><input type="number" id="prepMin" data-campo="prepMin" min="0" step="5" inputmode="numeric"><span class="campo__unidad">min</span></span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Post-proceso</span>
-          <span class="campo__control"><input type="number" id="postMin" data-campo="postMin" min="0" step="5" inputmode="numeric"><span class="campo__unidad">min</span></span>
-          <span class="campo__pista">Quitar soportes, lijar, pintar.</span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Tu hora de taller</span>
-          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaManoObra" data-campo="tarifaManoObra" min="0" step="0.5" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
-        </label>
-      </div>
-      <div class="campos campos--3">
-        <label class="campo">
-          <span class="campo__nombre">Modelado o diseño</span>
-          <span class="campo__control"><input type="number" id="disenoMin" data-campo="disenoMin" min="0" step="15" inputmode="numeric"><span class="campo__unidad">min</span></span>
-          <span class="campo__pista">Se cobra una sola vez, no por pieza.</span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Tu hora de diseño</span>
-          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaDiseno" data-campo="tarifaDiseno" min="0" step="0.5" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Impresiones fallidas</span>
-          <span class="campo__control"><input type="number" id="fallosPct" data-campo="fallosPct" min="0" max="60" step="1" inputmode="decimal"><span class="campo__unidad">%</span></span>
-          <span class="campo__pista">Cuántas se despegan, se atascan o salen mal.</span>
-        </label>
-      </div>
-    </section>
-
-    <!-- ─── Comercial ─────────────────────────────────────────────────── -->
-    <section class="bloque">
-      <h2 class="bloque__titulo"><span class="eyebrow">Comercial</span>Margen, envío y cobro</h2>
-      <div class="campos campos--3">
-        <label class="campo">
-          <span class="campo__nombre">Empaque por pieza</span>
-          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="empaqueUnit" data-campo="empaqueUnit" min="0" step="0.05" inputmode="decimal"></span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Envío del pedido</span>
-          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="envio" data-campo="envio" min="0" step="0.5" inputmode="decimal"></span>
-          <span class="campo__pista">Servientrega o Tramaco dentro del país: $4–6.</span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Margen de ganancia</span>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="margenPct">Margen sobre el costo</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Cuánto le sumas al costo. Un 45 % significa que si te cuesta $10, lo vendes en $14,50. Escribe aquí o usa el monto de al lado: manda el último que toques.</span></button></span>
           <span class="campo__control"><input type="number" id="margenPct" data-campo="margenPct" min="0" step="5" inputmode="decimal"><span class="campo__unidad">%</span></span>
-        </label>
-      </div>
-      <div class="campos campos--2">
-        <label class="campo">
-          <span class="campo__nombre">Medio de cobro</span>
-          <span class="campo__control campo__control--select"><select id="medioCobro"></select></span>
-          <span class="campo__pista">La comisión se suma por dentro para que no te coma el margen.</span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Comisión</span>
-          <span class="campo__control"><input type="number" id="comisionPct" data-campo="comisionPct" min="0" max="50" step="0.1" inputmode="decimal"><span class="campo__unidad">%</span></span>
-        </label>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="margenMonto">O una ganancia fija</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Si prefieres pensar "a esto le pongo $5", escríbelo aquí y el porcentaje se ignora.</span></button></span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="margenMonto" data-campo="margenMonto" min="0" step="0.5" inputmode="decimal"></span>
+        </div>
       </div>
       <label class="interruptor">
         <input type="checkbox" id="cobraIva" data-campo="cobraIva" checked>
@@ -699,21 +721,128 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
       </label>
     </section>
 
-    <!-- ─── SRI ───────────────────────────────────────────────────────── -->
-    <section class="bloque">
-      <h2 class="bloque__titulo"><span class="eyebrow">SRI</span>Si tu cliente es agente de retención</h2>
-      <div class="campos campos--2">
-        <label class="campo">
-          <span class="campo__nombre">Retención de renta</span>
-          <span class="campo__control campo__control--select"><select id="retRentaPct" data-campo="retRentaPct"></select></span>
-        </label>
-        <label class="campo">
-          <span class="campo__nombre">Retención de IVA</span>
-          <span class="campo__control campo__control--select"><select id="retIvaPct" data-campo="retIvaPct"></select></span>
-        </label>
+    <!-- ─── Máquina ───────────────────────────────────────────────────── -->
+    <details class="bloque bloque--plegable" id="det-maquina">
+      <summary class="bloque__titulo"><span class="eyebrow">Máquina</span>Tu impresora<span class="resumen" id="res-maquina"></span></summary>
+      <div class="bloque__cuerpo">
+        <div class="campos campos--2">
+        <div class="campo ">
+          <span class="campo__nombre"><label for="modeloImpresora">Modelo</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Se llena solo con la impresora que trae tu .3mf. Sale impreso en la cotización.</span></button></span>
+          <span class="campo__control"><input type="text" id="modeloImpresora" data-campo="modeloImpresora" placeholder="Creality SPARKX i7" autocomplete="off"></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="potenciaW">Consumo medio</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">El promedio de toda la impresión, no el pico. Un medidor de enchufe de $10 te da el número exacto; si no lo tienes, usa el atajo de abajo.</span></button></span>
+          <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
+        </div>
+        </div>
+        <div class="campo">
+          <span class="campo__nombre"><label for="tipoImpresora">¿No sabes tu consumo?</label></span>
+          <span class="campo__control campo__control--select"><select id="tipoImpresora"></select></span>
+          <span class="campo__pista">Elige la máquina más parecida a la tuya y se copia un valor de arranque al campo de arriba.</span>
+        </div>
+        <div class="campos campos--2">
+        <div class="campo ">
+          <span class="campo__nombre"><label for="precioImpresora">Costo de la impresora</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Lo que te costó puesta en Ecuador: precio + envío + aranceles. Este dato ningún archivo lo trae, tienes que ponerlo tú.</span></button></span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="precioImpresora" data-campo="precioImpresora" min="0" step="10" inputmode="decimal"></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="vidaUtilH">Vida útil estimada</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Horas de impresión que esperas sacarle antes de jubilarla. Entre 5.000 y 8.000 h es una apuesta razonable en FDM.</span></button></span>
+          <span class="campo__control"><input type="number" id="vidaUtilH" data-campo="vidaUtilH" min="1" step="100" inputmode="numeric"><span class="campo__unidad">h</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="mantenimientoPctAnual">Mantenimiento al año</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Boquillas, correas, láminas PEI, extrusor, ventiladores. Como porcentaje de lo que costó la máquina.</span></button></span>
+          <span class="campo__control"><input type="number" id="mantenimientoPctAnual" data-campo="mantenimientoPctAnual" min="0" step="1" inputmode="decimal"><span class="campo__unidad">% del equipo</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="horasAnuales">Horas que imprime al año</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Para repartir el mantenimiento. 1.200 h son unas 23 horas por semana.</span></button></span>
+          <span class="campo__control"><input type="number" id="horasAnuales" data-campo="horasAnuales" min="1" step="50" inputmode="numeric"><span class="campo__unidad">h</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="consumiblesHora">Otros consumibles</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Laca, alcohol isopropílico, lijas, guantes, silica. Déjalo en 0 si no llevas esa cuenta.</span></button></span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="consumiblesHora" data-campo="consumiblesHora" min="0" step="0.01" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
+        </div>
+        </div>
       </div>
-      <p class="nota">No cambian tu precio ni tu utilidad: solo una parte del cobro se va como crédito tributario y la recuperas en tu declaración.</p>
-    </section>
+    </details>
+
+    <!-- ─── Taller ────────────────────────────────────────────────────── -->
+    <details class="bloque bloque--plegable" id="det-taller">
+      <summary class="bloque__titulo"><span class="eyebrow">Taller</span>Tu tiempo y el riesgo<span class="resumen" id="res-taller"></span></summary>
+      <div class="bloque__cuerpo">
+        <div class="campos campos--3">
+        <div class="campo ">
+          <span class="campo__nombre"><label for="prepMin">Preparación</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Los minutos antes de darle a imprimir: abrir el archivo, laminar, cambiar el filamento, limpiar la cama, pegar laca.</span></button></span>
+          <span class="campo__control"><input type="number" id="prepMin" data-campo="prepMin" min="0" step="5" inputmode="numeric"><span class="campo__unidad">min</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="postMin">Post-proceso</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Después de imprimir: despegar la pieza, quitar soportes, lijar, pintar, armar, revisar y empacar.</span></button></span>
+          <span class="campo__control"><input type="number" id="postMin" data-campo="postMin" min="0" step="5" inputmode="numeric"><span class="campo__unidad">min</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="tarifaManoObra">Tu hora de taller</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Lo que vale tu hora trabajando con las manos. Si no sabes, parte del sueldo que te pagarías al mes dividido para 160 horas.</span></button></span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaManoObra" data-campo="tarifaManoObra" min="0" step="0.5" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="disenoMin">Modelado o diseño</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Solo si tú modelaste la pieza. Se cobra una sola vez en todo el pedido, no por cada copia.</span></button></span>
+          <span class="campo__control"><input type="number" id="disenoMin" data-campo="disenoMin" min="0" step="15" inputmode="numeric"><span class="campo__unidad">min</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="tarifaDiseno">Tu hora de diseño</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Suele valer más que la hora de taller porque es trabajo especializado.</span></button></span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaDiseno" data-campo="tarifaDiseno" min="0" step="0.5" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="fallosPct">Impresiones fallidas</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">De cada 100 impresiones, cuántas se despegan, se atascan o salen mal. Ese costo lo pagas tú, así que se reparte entre las que sí salen.</span></button></span>
+          <span class="campo__control"><input type="number" id="fallosPct" data-campo="fallosPct" min="0" max="60" step="1" inputmode="decimal"><span class="campo__unidad">%</span></span>
+        </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- ─── Extras ────────────────────────────────────────────────────── -->
+    <details class="bloque bloque--plegable" id="det-extras">
+      <summary class="bloque__titulo"><span class="eyebrow">Extras</span>Empaque, envío y cobro<span class="resumen" id="res-extras"></span></summary>
+      <div class="bloque__cuerpo">
+        <p class="nota">Todo esto es opcional: si no empacas ni envías, déjalo en cero y no afecta el precio.</p>
+        <div class="campos campos--2">
+        <div class="campo ">
+          <span class="campo__nombre"><label for="empaqueUnit">Empaque por pieza</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Funda, caja, papel, etiqueta, sticker. Si entregas la pieza pelada, déjalo en 0.</span></button></span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="empaqueUnit" data-campo="empaqueUnit" min="0" step="0.05" inputmode="decimal"></span>
+        </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="envio">Envío del pedido</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Servientrega o Tramaco dentro del país cuestan $4–6. Se le traslada al cliente sin margen encima.</span></button></span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="envio" data-campo="envio" min="0" step="0.5" inputmode="decimal"></span>
+        </div>
+        </div>
+        <div class="campos campos--2">
+          <div class="campo">
+            <span class="campo__nombre"><label for="medioCobro">Medio de cobro</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Si te pagan con tarjeta o pasarela, esa comisión sale de tu bolsillo. Se suma por dentro para que no te coma el margen.</span></button></span>
+            <span class="campo__control campo__control--select"><select id="medioCobro"></select></span>
+          </div>
+        <div class="campo ">
+          <span class="campo__nombre"><label for="comisionPct">Comisión</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Puedes escribir el porcentaje exacto que te cobra tu proveedor.</span></button></span>
+          <span class="campo__control"><input type="number" id="comisionPct" data-campo="comisionPct" min="0" max="50" step="0.1" inputmode="decimal"><span class="campo__unidad">%</span></span>
+        </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- ─── SRI ───────────────────────────────────────────────────────── -->
+    <details class="bloque bloque--plegable" id="det-sri">
+      <summary class="bloque__titulo"><span class="eyebrow">SRI</span>Retenciones<span class="resumen" id="res-sri"></span></summary>
+      <div class="bloque__cuerpo">
+        <p class="nota">Solo si le facturas a una empresa que es agente de retención. No cambian tu precio ni tu utilidad: una parte del cobro se va como crédito tributario y la recuperas en tu declaración.</p>
+        <div class="campos campos--2">
+        <div class="campo">
+          <span class="campo__nombre"><label for="retRentaPct">Retención de renta</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">El 1 % es lo típico al vender bienes y el 2 % al prestar servicios. Si tu cliente es persona natural sin RUC, no aplica.</span></button></span>
+          <span class="campo__control campo__control--select"><select id="retRentaPct" data-campo="retRentaPct"></select></span>
+        </div>
+        <div class="campo">
+          <span class="campo__nombre"><label for="retIvaPct">Retención de IVA</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Se retiene un porcentaje del IVA que facturaste: 30 % en bienes, 70 % en servicios.</span></button></span>
+          <span class="campo__control campo__control--select"><select id="retIvaPct" data-campo="retIvaPct"></select></span>
+        </div>
+        </div>
+      </div>
+    </details>
   </form>
 
   <!-- ─── Resultado ───────────────────────────────────────────────────── -->
@@ -722,12 +851,12 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
       <header class="ticket__cabecera">
         <span class="eyebrow">Precio de venta</span>
         <p class="ticket__total mono" id="r-total">$0,00</p>
-        <p class="ticket__detalle" id="r-total-nota">1 pieza · IVA 15 % incluido</p>
+        <p class="ticket__detalle" id="r-total-nota">IVA 15 % incluido</p>
       </header>
 
       <div class="ticket__cifras">
         <div class="cifra">
-          <span class="cifra__etiqueta">Por pieza</span>
+          <span class="cifra__etiqueta" id="r-unitario-et">Por pieza</span>
           <span class="cifra__valor mono" id="r-unitario">$0,00</span>
         </div>
         <div class="cifra">
@@ -768,14 +897,17 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
         </table>
       </div>
 
-      <dl class="metricas">
-        <div><dt>Tu hora de máquina</dt><dd class="mono" id="m-hora">$0,00</dd></div>
-        <div><dt>Costo por gramo impreso</dt><dd class="mono" id="m-gramo">$0,00</dd></div>
-        <div><dt>Ingreso por hora impresa</dt><dd class="mono" id="m-ingreso">$0,00</dd></div>
-        <div><dt>Energía del pedido</dt><dd class="mono" id="m-kwh">0,00 kWh</dd></div>
-        <div><dt>Filamento del pedido</dt><dd class="mono" id="m-gramos">0 g</dd></div>
-        <div><dt>Tiempo de máquina</dt><dd class="mono" id="m-tiempo">0 h</dd></div>
-      </dl>
+      <details class="metricas-caja">
+        <summary>Ver métricas de taller</summary>
+        <dl class="metricas">
+          <div><dt>Tu hora de máquina</dt><dd class="mono" id="m-hora">$0,00</dd></div>
+          <div><dt>Costo por gramo impreso</dt><dd class="mono" id="m-gramo">$0,00</dd></div>
+          <div><dt>Ingreso por hora impresa</dt><dd class="mono" id="m-ingreso">$0,00</dd></div>
+          <div><dt>Energía del pedido</dt><dd class="mono" id="m-kwh">0,00 kWh</dd></div>
+          <div><dt>Filamento del pedido</dt><dd class="mono" id="m-gramos">0 g</dd></div>
+          <div><dt>Tiempo de máquina</dt><dd class="mono" id="m-tiempo">0 h</dd></div>
+        </dl>
+      </details>
 
       <div class="ticket__acciones">
         <button type="button" class="btn btn--principal" id="btn-copiar">Copiar cotización</button>
@@ -886,6 +1018,8 @@ const VALORES_INICIALES = {
   empaqueUnit: 0.35,
   envio: 0,
   margenPct: 45,
+  margenModo: 'pct',
+  margenMonto: 0,
   comisionPct: 0,
   cobraIva: true,
   ivaPct: IVA_EC,
@@ -963,8 +1097,12 @@ function calcular(entrada) {
   const diseno = (noNeg(e.disenoMin) / 60) * noNeg(e.tarifaDiseno);
   const costoTotal = costoUnitario * cantidad + diseno;
 
+  // El margen se puede fijar como porcentaje sobre el costo o como un monto
+  // en dólares, que es como mucha gente cotiza de verdad ("le pongo $5").
   const margenPct = noNeg(e.margenPct);
-  const utilidadBruta = costoTotal * (margenPct / 100);
+  const utilidadBruta = e.margenModo === 'monto'
+    ? noNeg(e.margenMonto)
+    : costoTotal * (margenPct / 100);
   const envio = noNeg(e.envio);
 
   // El envío se traslada al cliente sin margen; la comisión de la pasarela se
@@ -1042,6 +1180,14 @@ function calcular(entrada) {
     },
     desglose,
   };
+}
+
+/**
+ * Precio final que saldría con otro margen, sin tocar el resto de la entrada.
+ * Sirve para proponer escalones de precio antes de decidir.
+ */
+function precioConMargen(entrada, margenPct) {
+  return calcular({ ...entrada, margenModo: 'pct', margenPct }).pedido.total;
 }
 
 /** "4 h 30 min" a partir de horas decimales. */
@@ -1490,12 +1636,10 @@ async function leer3mf(archivo) {
     r.origen = 'del laminado del proyecto (datos reales)';
   }
 
-  // Geometría, para estimar cuando no hay laminado.
-  let porObjeto = null;
-  if (!laminado) {
-    const rutaMalla = buscarEntrada(zip, '3D/3dmodel.model');
-    if (rutaMalla) porObjeto = await medirModelo(zip, rutaMalla);
-  }
+  // La geometría se mide siempre: sin laminado sirve para estimar, y con
+  // laminado sirve para repartir el peso real entre los objetos de la bandeja.
+  const rutaMalla = buscarEntrada(zip, '3D/3dmodel.model');
+  const porObjeto = rutaMalla ? await medirModelo(zip, rutaMalla) : null;
 
   // Bandejas exportadas como G-code dentro del propio .3mf.
   const gcodes = [...zip.entradas.keys()].filter((n) => /plate_\d+\.gcode$/i.test(n)).sort();
@@ -1508,52 +1652,98 @@ async function leer3mf(archivo) {
     1,
   );
 
+  // Cuánto plástico lleva cada objeto según su geometría. Es el reparto que
+  // permite marcar objetos sueltos de una bandeja.
+  const volumenImpreso = (m) => estimarGramos({
+    volumenCm3: m.cm3,
+    superficieCm2: m.cm2,
+    densidad: 1,
+    rellenoPct: r.relleno ?? 15,
+    paredes: r.paredes,
+    boquilla: r.boquilla,
+  });
+
   for (let i = 0; i < cuantas; i++) {
-    const numero = i + 1;
-    const deModelo = modelo?.bandejas.find((b) => b.indice === numero) || modelo?.bandejas[i] || null;
-    const deLaminado = laminado?.find((b) => b.indice === numero) || laminado?.[i] || null;
+    const indice = i + 1;
+    const deModelo = modelo?.bandejas.find((b) => b.indice === indice) || modelo?.bandejas[i] || null;
+    const deLaminado = laminado?.find((b) => b.indice === indice) || laminado?.[i] || null;
 
     const bandeja = {
-      indice: numero,
+      indice,
       nombre: deModelo?.nombre || '',
-      objetos: deModelo?.objetos || [],
       gramos: deLaminado?.gramos || 0,
       segundos: deLaminado?.segundos || 0,
       metros: deLaminado?.metros || 0,
       filamentos: deLaminado?.filamentos || [],
-      miniatura: await imagenDe(zip, deModelo?.miniaturaRuta || `Metadata/plate_${numero}.png`),
+      estimado: !deLaminado,
+      objetos: [],
+      miniatura: await imagenDe(zip, deModelo?.miniaturaRuta || `Metadata/plate_${indice}.png`),
     };
 
+    // Bandeja exportada como G-code dentro del propio .3mf.
     if (!bandeja.gramos && gcodes.length) {
-      const ruta = gcodes.find((n) => n.includes(`plate_${numero}.`)) || (cuantas === 1 ? gcodes[0] : null);
+      const ruta = gcodes.find((n) => n.includes(`plate_${indice}.`)) || (cuantas === 1 ? gcodes[0] : null);
       const entrada = ruta ? zip.entradas.get(ruta) : null;
       if (entrada && entrada.tamOriginal < 120 * 1024 * 1024) {
         const totales = totalesDeGcode(await leerTexto(zip, ruta));
-        Object.assign(bandeja, totales);
-        if (totales.gramos) { r.laminado = true; r.origen = 'del G-code de la bandeja (datos reales)'; }
+        if (totales.gramos) {
+          Object.assign(bandeja, totales, { estimado: false });
+          r.laminado = true;
+          r.origen = 'del G-code de la bandeja (datos reales)';
+        }
       }
     }
 
-    if (!bandeja.gramos && porObjeto) {
-      const ids = deModelo?.objetosId?.length ? deModelo.objetosId : [...porObjeto.keys()];
-      let cm3 = 0;
-      let cm2 = 0;
-      let piezas = 0;
-      for (const id of ids) {
-        const m = porObjeto.get(id);
-        if (!m) continue;
-        cm3 += m.cm3;
-        cm2 += m.cm2;
-        piezas++;
+    // Objetos de la bandeja, con su volumen medido.
+    const ids = deModelo?.objetosId?.length
+      ? deModelo.objetosId
+      : (cuantas === 1 && porObjeto ? [...porObjeto.keys()] : []);
+
+    const medidos = ids.map((id) => ({
+      id,
+      nombre: modelo?.nombres.get(id) || `Objeto ${id}`,
+      medida: porObjeto?.get(id) || null,
+    })).filter((o) => o.medida);
+
+    const reparto = medidos.map((o) => volumenImpreso(o.medida));
+    const sumaReparto = reparto.reduce((s, v) => s + v, 0);
+
+    if (medidos.length && sumaReparto > 0) {
+      const densidad = r.densidad || 1.24;
+      bandeja.objetos = medidos.map((o, k) => {
+        const parte = reparto[k] / sumaReparto;
+        const gramos = bandeja.gramos > 0 ? bandeja.gramos * parte : reparto[k] * densidad;
+        return {
+          id: o.id,
+          nombre: o.nombre,
+          gramos,
+          segundos: bandeja.segundos * parte,
+          volumenCm3: o.medida.cm3,
+          superficieCm2: o.medida.cm2,
+          estimado: bandeja.gramos <= 0,
+        };
+      });
+      if (!bandeja.gramos) {
+        bandeja.gramos = bandeja.objetos.reduce((s, o) => s + o.gramos, 0);
+        bandeja.estimado = true;
       }
-      if (cm3 > 0) {
-        bandeja.volumenCm3 = cm3;
-        bandeja.superficieCm2 = cm2;
-        if (!bandeja.objetos.length) bandeja.objetos = Array.from({ length: piezas }, (_, k) => `Objeto ${k + 1}`);
-      }
+    } else if (bandeja.gramos > 0) {
+      // Sin geometría utilizable, la bandeja entera es un solo bloque.
+      bandeja.objetos = [{
+        id: `b${indice}`,
+        nombre: `Bandeja ${indice} completa`,
+        gramos: bandeja.gramos,
+        segundos: bandeja.segundos,
+        estimado: false,
+      }];
     }
 
-    if (bandeja.gramos || bandeja.volumenCm3 || bandeja.objetos.length) r.bandejas.push(bandeja);
+    if (bandeja.objetos.length) r.bandejas.push(bandeja);
+  }
+
+  // Los gramos por objeto se reparten según el volumen, no según el G-code.
+  if (r.laminado && r.bandejas.some((b) => b.objetos.length > 1)) {
+    r.avisos.push('El peso de cada objeto se reparte según su volumen, así que marcar objetos sueltos da un número aproximado. El total de la bandeja completa sí es el exacto del laminador.');
   }
 
   r.miniatura = r.bandejas[0]?.miniatura || await imagenDe(zip, 'Metadata/plate_1.png');
@@ -1594,7 +1784,10 @@ async function leerGcode(archivo) {
     throw new Error('No se encontraron los totales del laminado en el G-code.');
   }
 
-  r.bandejas.push({ indice: 1, nombre: '', objetos: [], filamentos: [], miniatura: null, ...totales });
+  r.bandejas.push({
+    indice: 1, nombre: '', filamentos: [], miniatura: null, estimado: false, ...totales,
+    objetos: [{ id: 'g1', nombre: 'Toda la impresión', gramos: totales.gramos, segundos: totales.segundos, estimado: false }],
+  });
   return r;
 }
 
@@ -1615,9 +1808,9 @@ const CLAVE_PERFILES = 'costeo3d-ec:perfiles';
 
 const usd = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD' });
 const usdFino = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', minimumFractionDigits: 3, maximumFractionDigits: 4 });
-const dec = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 2 });
 const dinero = (n) => usd.format(Number.isFinite(n) ? n : 0);
 const numero = (n, d = 2) => new Intl.NumberFormat('es-EC', { maximumFractionDigits: d }).format(Number.isFinite(n) ? n : 0);
+const escapar = (t) => String(t ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 
 const COLOR = {
   material: '--c1', energia: '--c4', maquina: '--c2', consumibles: '--c5',
@@ -1625,13 +1818,23 @@ const COLOR = {
   envio: '--c-envio', comision: '--c-comision', utilidad: '--c-utilidad',
 };
 
+const ESCALONES = [
+  { nombre: 'Ajustado', pct: 25, pista: 'para clientes que repiten' },
+  { nombre: 'Recomendado', pct: 45, pista: 'pieza a pedido' },
+  { nombre: 'Premium', pct: 90, pista: 'diseño y acabado' },
+];
+
 let estado = estructurar(VALORES_INICIALES);
+let importacion = null;              // ficha del último archivo leído
+let seleccion = new Set();           // objetos marcados: "bandeja:idObjeto"
+let rellenoSel = 15;                 // relleno con el que se estima
+let objetosSel = 0;                  // cuántos objetos entran en una copia
 
 function estructurar(base) {
   return { ...base, materiales: base.materiales.map((m) => ({ ...m })) };
 }
 
-/* ── Poblar los selects fijos ─────────────────────────────────────────── */
+/* ── Selects fijos ────────────────────────────────────────────────────── */
 function poblarSelects() {
   const lista = document.createElement('datalist');
   lista.id = 'lista-materiales';
@@ -1644,16 +1847,15 @@ function poblarSelects() {
   document.body.append(lista);
 
   const medio = $('medioCobro');
-  MEDIOS_COBRO.forEach((m, i) => {
+  for (const m of MEDIOS_COBRO) {
     const o = document.createElement('option');
     o.value = String(m.valor);
-    o.textContent = m.valor > 0 ? `${m.etiqueta} — ${dec.format(m.valor)} %` : m.etiqueta;
-    o.dataset.indice = String(i);
+    o.textContent = m.valor > 0 ? `${m.etiqueta} — ${numero(m.valor, 1)} %` : m.etiqueta;
     medio.append(o);
-  });
+  }
 
   const tipo = $('tipoImpresora');
-  tipo.innerHTML = '<option value="">Elige para autocompletar…</option>';
+  tipo.innerHTML = '<option value="">Elige la más parecida…</option>';
   for (const t of TIPOS_IMPRESORA) {
     const o = document.createElement('option');
     o.value = String(t.potenciaW);
@@ -1725,8 +1927,9 @@ function pintarFormulario() {
     if (el.type === 'checkbox') el.checked = estado[clave] !== false;
     else el.value = estado[clave] ?? '';
   }
-  const medio = MEDIOS_COBRO.findIndex((m) => m.valor === num(estado.comisionPct));
-  $('medioCobro').value = medio >= 0 ? String(MEDIOS_COBRO[medio].valor) : String(MEDIOS_COBRO[0].valor);
+  const coincide = MEDIOS_COBRO.find((m) => m.valor === num(estado.comisionPct));
+  $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  marcarModoMargen();
   pintarMateriales();
 }
 
@@ -1740,17 +1943,31 @@ function leerFormulario() {
   leerMateriales();
 }
 
-/* ── Pintar resultados ────────────────────────────────────────────────── */
+/** Marca visualmente cuál de los dos campos de margen manda. */
+function marcarModoMargen() {
+  const monto = estado.margenModo === 'monto';
+  $('margenPct').closest('.campo').style.opacity = monto ? '.5' : '1';
+  $('margenMonto').closest('.campo').style.opacity = monto ? '1' : '.5';
+}
+
+/* ── Resultados ───────────────────────────────────────────────────────── */
+
+/** Cómo se llama lo que estamos costeando: una pieza o un juego de objetos. */
+function etiquetaUnidad() {
+  if (objetosSel > 1) return { corta: `Por juego de ${objetosSel}`, larga: `juego de ${objetosSel} objetos` };
+  return { corta: 'Por pieza', larga: 'pieza' };
+}
+
 function pintar() {
   const r = calcular(estado);
-  const piezas = r.cantidad === 1 ? '1 pieza' : `${r.cantidad} piezas`;
+  const unidad = etiquetaUnidad();
+  const veces = r.cantidad === 1 ? '' : `${r.cantidad} × `;
 
   $('r-total').textContent = dinero(r.pedido.total);
   $('r-total-movil').textContent = dinero(r.pedido.total);
-  $('r-total-nota').textContent = r.pedido.ivaPct > 0
-    ? `${piezas} · IVA ${numero(r.pedido.ivaPct, 0)} % incluido`
-    : `${piezas} · sin IVA`;
+  $('r-total-nota').textContent = `${veces}${unidad.larga}${r.pedido.ivaPct > 0 ? ` · IVA ${numero(r.pedido.ivaPct, 0)} % incluido` : ' · sin IVA'}`;
 
+  $('r-unitario-et').textContent = unidad.corta;
   $('r-unitario').textContent = dinero(r.metricas.precioUnitarioConIva);
   $('r-costo').textContent = dinero(r.pedido.costoTotal + r.pedido.envio);
   $('r-utilidad').textContent = dinero(r.pedido.utilidad);
@@ -1781,7 +1998,6 @@ function pintar() {
   $('m-gramos').textContent = `${numero(r.gramosTotales, 1)} g`;
   $('m-tiempo').textContent = formatoDuracion(r.tiempoH * r.cantidad);
 
-  // Barra y leyenda
   const suma = r.desglose.reduce((s, d) => s + d.valor, 0) || 1;
   $('barra').innerHTML = r.desglose
     .map((d) => `<span style="width:${(d.valor / suma) * 100}%;background:var(${COLOR[d.clave]})"></span>`)
@@ -1791,97 +2007,133 @@ function pintar() {
     .map((d) => `<li><i style="background:var(${COLOR[d.clave]})"></i>${d.etiqueta}<b>${dinero(d.valor)}</b></li>`)
     .join('');
 
-  // Resumen por filamento
   r.unidad.detalleMaterial.forEach((m, i) => {
     const el = $(`mat-resumen-${i}`);
-    if (el) el.textContent = m.gramos > 0
-      ? `${numero(m.gramos, 1)} g · ${dinero(m.precioGramo * 1000)} el kg · ${dinero(m.costo)} por pieza`
-      : 'Sin consumo';
+    if (el) {
+      el.textContent = m.gramos > 0
+        ? `${numero(m.gramos, 1)} g · ${dinero(m.precioGramo * 1000)} el kg · ${dinero(m.costo)} por ${unidad.corta.toLowerCase().replace('por ', '')}`
+        : 'Sin consumo';
+    }
   });
 
+  pintarEscalones();
+  pintarResumenes(r);
   return r;
 }
 
+/** Tres precios de referencia; al hacer clic, ese margen se aplica. */
+function pintarEscalones() {
+  const activo = estado.margenModo !== 'monto' ? num(estado.margenPct) : null;
+  $('escalones').innerHTML = ESCALONES.map((e) => `
+    <button type="button" class="escalon" data-pct="${e.pct}" aria-pressed="${activo === e.pct}">
+      <span class="escalon__nombre">${e.nombre}</span>
+      <span class="escalon__pct">${e.pct} % · ${e.pista}</span>
+      <span class="escalon__precio">${dinero(precioConMargen(estado, e.pct))}</span>
+    </button>`).join('');
+}
+
+/** Lo esencial de cada sección plegada, para no tener que abrirla. */
+function pintarResumenes(r) {
+  $('res-maquina').textContent = [
+    String(estado.modeloImpresora || '').trim() || 'sin modelo',
+    `${numero(estado.potenciaW, 0)} W`,
+    `${dinero(r.horaMaquina)}/h de máquina`,
+  ].join(' · ');
+
+  $('res-taller').textContent = [
+    `${numero(num(estado.prepMin) + num(estado.postMin), 0)} min de trabajo`,
+    `${dinero(estado.tarifaManoObra)}/h`,
+    `${numero(estado.fallosPct, 0)} % de fallos`,
+  ].join(' · ');
+
+  const extras = [];
+  if (num(estado.empaqueUnit) > 0) extras.push(`empaque ${dinero(estado.empaqueUnit)}`);
+  if (num(estado.envio) > 0) extras.push(`envío ${dinero(estado.envio)}`);
+  if (num(estado.comisionPct) > 0) extras.push(`comisión ${numero(estado.comisionPct, 1)} %`);
+  $('res-extras').textContent = extras.length ? extras.join(' · ') : 'sin empaque, envío ni comisiones';
+
+  const ret = [];
+  if (num(estado.retRentaPct) > 0) ret.push(`renta ${numero(estado.retRentaPct, 2)} %`);
+  if (num(estado.retIvaPct) > 0) ret.push(`IVA ${numero(estado.retIvaPct, 0)} %`);
+  $('res-sri').textContent = ret.length ? `${ret.join(' · ')} · recibes ${dinero(r.fiscal.aRecibir)}` : 'sin retenciones';
+}
+
 /* ── Importar .3mf / .gcode ───────────────────────────────────────────── */
-let importacion = null;      // última ficha leída
-let bandejaSel = '1';        // '1', '2'… o 'todas'
-let rellenoSel = 15;
 
-const bandejasElegidas = (info, seleccion) => (seleccion === 'todas'
-  ? info.bandejas
-  : info.bandejas.filter((b) => String(b.indice) === String(seleccion)));
-
-/** Busca el precio y la densidad que ya conocemos para un tipo de filamento. */
 const preset = (nombre) => MATERIALES.find((m) => m.nombre.toLowerCase() === String(nombre || '').toLowerCase())
   || MATERIALES.find((m) => String(nombre || '').toUpperCase().startsWith(m.nombre.toUpperCase()));
+
+/** Gramos de un objeto; si la bandeja no está laminada, se estiman al vuelo. */
+function gramosDe(bandeja, objeto) {
+  if (!bandeja.estimado) return objeto.gramos || 0;
+  return estimarGramos({
+    volumenCm3: objeto.volumenCm3 || 0,
+    superficieCm2: objeto.superficieCm2 || 0,
+    densidad: importacion?.densidad || preset(importacion?.tipo3d)?.densidad || 1.24,
+    rellenoPct: rellenoSel,
+    paredes: importacion?.paredes,
+    boquilla: importacion?.boquilla,
+  });
+}
+
+const marcado = (b, o) => seleccion.has(`${b.indice}:${o.id}`);
+
+/** Suma de lo que está marcado, repartiendo los filamentos de cada bandeja. */
+function totalesSeleccion() {
+  const info = importacion;
+  const t = { segundos: 0, gramos: 0, objetos: 0, porTipo: new Map(), estimado: false };
+  if (!info) return t;
+
+  for (const b of info.bandejas) {
+    const sel = b.objetos.filter((o) => marcado(b, o));
+    if (!sel.length) continue;
+    const gramosBandeja = b.objetos.reduce((s, o) => s + gramosDe(b, o), 0);
+    const gramosSel = sel.reduce((s, o) => s + gramosDe(b, o), 0);
+
+    t.objetos += sel.length;
+    t.gramos += gramosSel;
+    t.segundos += sel.reduce((s, o) => s + (o.segundos || 0), 0);
+    if (b.estimado) t.estimado = true;
+
+    const parte = gramosBandeja > 0 ? gramosSel / gramosBandeja : 0;
+    if (b.filamentos?.length) {
+      for (const f of b.filamentos) t.porTipo.set(f.tipo, (t.porTipo.get(f.tipo) || 0) + f.gramos * parte);
+    } else {
+      const tipo = info.tipo3d || 'PLA';
+      t.porTipo.set(tipo, (t.porTipo.get(tipo) || 0) + gramosSel);
+    }
+  }
+  return t;
+}
 
 function aplicarImportacion() {
   const info = importacion;
   if (!info) return;
-  const elegidas = bandejasElegidas(info, bandejaSel);
-  if (!elegidas.length) return;
+  const t = totalesSeleccion();
+  objetosSel = t.objetos;
 
-  const segundos = elegidas.reduce((s, b) => s + (b.segundos || 0), 0);
-  if (segundos > 0) {
-    estado.horas = Math.floor(segundos / 3600);
-    estado.minutos = Math.round((segundos % 3600) / 60);
-  }
-
-  // Un renglón por tipo de filamento, sumando las bandejas elegidas.
-  const porTipo = new Map();
-  for (const b of elegidas) {
-    for (const f of b.filamentos || []) {
-      const clave = f.tipo || info.tipo3d || 'PLA';
-      porTipo.set(clave, (porTipo.get(clave) || 0) + f.gramos);
-    }
+  if (t.segundos > 0) {
+    estado.horas = Math.floor(t.segundos / 3600);
+    estado.minutos = Math.round((t.segundos % 3600) / 60);
   }
 
   const nombreBonito = (tipo) => {
     const comercial = String(info.filamento || '').trim();
     if (!comercial) return tipo;
-    // "Hyper PLA" ya dice de qué material es; no lo repitas.
     return comercial.toUpperCase().includes(String(tipo).toUpperCase()) ? comercial : `${comercial} ${tipo}`;
   };
 
-  if (porTipo.size) {
-    estado.materiales = [...porTipo].map(([tipo, gramos]) => {
+  const tipos = [...t.porTipo].filter(([, g]) => g > 0.01);
+  if (tipos.length) {
+    estado.materiales = tipos.map(([tipo, gramos]) => {
       const p = preset(tipo);
       return {
-        nombre: porTipo.size === 1 ? nombreBonito(tipo) : tipo,
+        nombre: tipos.length === 1 ? nombreBonito(tipo) : tipo,
         precioBobina: info.precioKg || p?.precioBobina || 22,
         pesoBobina: 1000,
         gramos: Math.round(gramos * 10) / 10,
       };
     });
-  } else {
-    const gramosLaminados = elegidas.reduce((s, b) => s + (b.gramos || 0), 0);
-    const tipo = info.tipo3d || 'PLA';
-    const p = preset(tipo);
-    let gramos = gramosLaminados;
-
-    if (!gramos) {
-      const volumen = elegidas.reduce((s, b) => s + (b.volumenCm3 || 0), 0);
-      const superficie = elegidas.reduce((s, b) => s + (b.superficieCm2 || 0), 0);
-      if (volumen > 0) {
-        gramos = estimarGramos({
-          volumenCm3: volumen,
-          superficieCm2: superficie,
-          densidad: info.densidad || p?.densidad || 1.24,
-          rellenoPct: rellenoSel,
-          paredes: info.paredes,
-          boquilla: info.boquilla,
-        });
-      }
-    }
-
-    if (gramos > 0) {
-      estado.materiales = [{
-        nombre: nombreBonito(tipo),
-        precioBobina: info.precioKg || p?.precioBobina || 22,
-        pesoBobina: 1000,
-        gramos: Math.round(gramos * 10) / 10,
-      }];
-    }
   }
 
   if (info.impresora && !String(estado.modeloImpresora || '').trim()) {
@@ -1899,22 +2151,9 @@ function tarjetaImportacion() {
   caja.hidden = false;
   caja.className = 'importado';
 
-  const elegidas = bandejasElegidas(info, bandejaSel);
-  const segundos = elegidas.reduce((s, b) => s + (b.segundos || 0), 0);
-  const gramos = elegidas.reduce((s, b) => s + (b.gramos || 0), 0);
-  const metros = elegidas.reduce((s, b) => s + (b.metros || 0), 0);
-  const volumen = elegidas.reduce((s, b) => s + (b.volumenCm3 || 0), 0);
-  const objetos = elegidas.flatMap((b) => b.objetos || []);
-  const estimando = !gramos && volumen > 0;
-
-  const etiquetaBandeja = (b) => {
-    const partes = [];
-    if (b.segundos) partes.push(formatoDuracion(b.segundos / 3600));
-    if (b.gramos) partes.push(`${numero(b.gramos, 1)} g`);
-    else if (b.volumenCm3) partes.push(`${numero(b.volumenCm3, 0)} cm³`);
-    if (b.objetos?.length) partes.push(`${b.objetos.length} ${b.objetos.length === 1 ? 'objeto' : 'objetos'}`);
-    return `Bandeja ${b.indice}${b.nombre ? ` · ${b.nombre}` : ''}${partes.length ? ` — ${partes.join(' · ')}` : ''}`;
-  };
+  const t = totalesSeleccion();
+  const estimando = info.bandejas.some((b) => b.estimado);
+  const bandejaVista = info.bandejas.find((b) => b.objetos.some((o) => marcado(b, o))) || info.bandejas[0];
 
   const ficha = [
     info.impresora ? ['Impresora', info.impresora] : null,
@@ -1922,31 +2161,39 @@ function tarjetaImportacion() {
     info.filamento || info.tipo3d ? ['Filamento', [info.filamento || info.tipo3d, info.marca ? `(${info.marca})` : ''].join(' ').trim()] : null,
     info.alturaCapa ? ['Capa y boquilla', `${numero(info.alturaCapa, 2)} mm · boquilla ${numero(info.boquilla || 0.4, 2)} mm`] : null,
     info.relleno != null ? ['Relleno del perfil', `${numero(info.relleno, 0)} %`] : null,
-    gramos ? ['Filamento usado', `${numero(gramos, 2)} g${metros ? ` · ${numero(metros, 2)} m` : ''}`] : null,
-    !gramos && volumen ? ['Volumen medido', `${numero(volumen, 1)} cm³`] : null,
-    segundos ? ['Tiempo de impresión', formatoDuracion(segundos / 3600)] : null,
-    objetos.length ? ['Objetos', objetos.slice(0, 6).join(', ') + (objetos.length > 6 ? ` y ${objetos.length - 6} más` : '')] : null,
   ].filter(Boolean);
 
-  const opciones = [
-    ...info.bandejas.map((b) => `<option value="${b.indice}"${String(b.indice) === bandejaSel ? ' selected' : ''}>${etiquetaBandeja(b)}</option>`),
-    info.bandejas.length > 1
-      ? `<option value="todas"${bandejaSel === 'todas' ? ' selected' : ''}>Las ${info.bandejas.length} bandejas juntas</option>`
-      : '',
-  ].join('');
+  const listaBandejas = info.bandejas.map((b) => {
+    const sel = b.objetos.filter((o) => marcado(b, o)).length;
+    const gramos = b.objetos.reduce((s, o) => s + gramosDe(b, o), 0);
+    const resumen = [
+      b.segundos ? formatoDuracion(b.segundos / 3600) : null,
+      `${numero(gramos, 1)} g`,
+      `${b.objetos.length} ${b.objetos.length === 1 ? 'objeto' : 'objetos'}`,
+    ].filter(Boolean).join(' · ');
+
+    const items = b.objetos.map((o) => `
+      <label class="objetos__item">
+        <input type="checkbox" data-obj="${b.indice}:${escapar(o.id)}"${marcado(b, o) ? ' checked' : ''}>
+        <span>${escapar(o.nombre)}</span>
+        <span class="mono">${numero(gramosDe(b, o), 1)} g${o.segundos ? ` · ${formatoDuracion(o.segundos / 3600)}` : ''}</span>
+      </label>`).join('');
+
+    return `
+      <div class="objetos__bandeja">
+        <input type="checkbox" data-bandeja="${b.indice}" aria-label="Marcar toda la bandeja ${b.indice}"${sel === b.objetos.length ? ' checked' : ''}>
+        <span>Bandeja ${b.indice}${b.nombre ? ` · ${escapar(b.nombre)}` : ''}</span>
+        <span class="mono">${resumen}</span>
+      </div>
+      ${items}`;
+  }).join('');
 
   caja.innerHTML = `
-    ${info.miniatura ? `<img src="${elegidas[0]?.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
+    ${bandejaVista?.miniatura || info.miniatura ? `<img src="${bandejaVista?.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
     <div class="importado__cuerpo">
-      <span class="importado__titulo">${info.archivo}</span>
+      <span class="importado__titulo">${escapar(info.archivo)}</span>
       <span class="importado__aviso">Leído ${info.origen || 'del archivo'}.</span>
-
-      ${info.bandejas.length > 1 ? `
-        <label class="importado__campo">Qué costeo
-          <select id="sel-bandeja">${opciones}</select>
-        </label>` : ''}
-
-      ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
+      ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${k}</dt><dd>${escapar(v)}</dd></div>`).join('')}</dl>` : ''}
 
       ${estimando ? `
         <label class="importado__campo">Relleno para estimar
@@ -1955,21 +2202,70 @@ function tarjetaImportacion() {
           </select>
         </label>` : ''}
 
+      <div class="objetos">
+        ${listaBandejas}
+        <p class="objetos__total">${t.objetos
+          ? `Vas a costear ${t.objetos} ${t.objetos === 1 ? 'objeto' : 'objetos'} · ${numero(t.gramos, 1)} g${t.segundos ? ` · ${formatoDuracion(t.segundos / 3600)}` : ''}`
+          : 'No has marcado ningún objeto todavía.'}</p>
+      </div>
+
       ${(info.avisos || []).map((a) => `<span class="importado__aviso"><strong>Ojo:</strong> ${a}</span>`).join('')}
-      ${!segundos ? '<span class="importado__aviso"><strong>Ojo:</strong> falta el tiempo de impresión. Escríbelo abajo.</span>' : ''}
+      ${!t.segundos ? '<span class="importado__aviso"><strong>Ojo:</strong> falta el tiempo de impresión. Escríbelo en Tiempo de impresión y luz.</span>' : ''}
     </div>`;
 
-  $('sel-bandeja')?.addEventListener('change', (ev) => {
-    bandejaSel = ev.target.value;
+  caja.querySelectorAll('[data-obj]').forEach((el) => el.addEventListener('change', (ev) => {
+    const clave = ev.target.dataset.obj;
+    if (ev.target.checked) seleccion.add(clave); else seleccion.delete(clave);
     aplicarImportacion();
-    tarjetaImportacion();
-  });
+    refrescarSeleccion();
+  }));
 
+  caja.querySelectorAll('[data-bandeja]').forEach((el) => el.addEventListener('change', (ev) => {
+    const bandeja = info.bandejas.find((b) => String(b.indice) === ev.target.dataset.bandeja);
+    for (const o of bandeja.objetos) {
+      const clave = `${bandeja.indice}:${o.id}`;
+      if (ev.target.checked) seleccion.add(clave); else seleccion.delete(clave);
+      const casilla = caja.querySelector(`[data-obj="${CSS.escape(clave)}"]`);
+      if (casilla) casilla.checked = ev.target.checked;
+    }
+    aplicarImportacion();
+    refrescarSeleccion();
+  }));
+
+  // El relleno sí cambia los gramos de cada objeto: hay que repintar la lista.
   $('relleno-import')?.addEventListener('change', (ev) => {
     rellenoSel = num(ev.target.value, 15);
     aplicarImportacion();
     tarjetaImportacion();
   });
+
+  refrescarSeleccion();
+}
+
+/**
+ * Refresca solo el total y las casillas de bandeja, sin reconstruir la lista:
+ * marcar objetos no debe hacer parpadear la tarjeta ni perder el foco.
+ */
+function refrescarSeleccion() {
+  const info = importacion;
+  const caja = $('importado');
+  if (!info || caja.hidden) return;
+
+  for (const b of info.bandejas) {
+    const casilla = caja.querySelector(`[data-bandeja="${b.indice}"]`);
+    if (!casilla) continue;
+    const marcados = b.objetos.filter((o) => marcado(b, o)).length;
+    casilla.checked = marcados === b.objetos.length;
+    casilla.indeterminate = marcados > 0 && marcados < b.objetos.length;
+  }
+
+  const t = totalesSeleccion();
+  const total = caja.querySelector('.objetos__total');
+  if (total) {
+    total.textContent = t.objetos
+      ? `Vas a costear ${t.objetos} ${t.objetos === 1 ? 'objeto' : 'objetos'} · ${numero(t.gramos, 1)} g${t.segundos ? ` · ${formatoDuracion(t.segundos / 3600)}` : ''}`
+      : 'No has marcado ningún objeto todavía.';
+  }
 }
 
 async function manejarArchivo(archivo) {
@@ -1977,19 +2273,21 @@ async function manejarArchivo(archivo) {
   const caja = $('importado');
   caja.hidden = false;
   caja.className = 'importado';
-  caja.innerHTML = `<div class="importado__cuerpo"><span class="importado__titulo">Leyendo ${archivo.name}…</span></div>`;
+  caja.innerHTML = `<div class="importado__cuerpo"><span class="importado__titulo">Leyendo ${escapar(archivo.name)}…</span></div>`;
   try {
     importacion = await importarArchivo(archivo);
-    bandejaSel = String(importacion.bandejas[0]?.indice ?? 1);
     rellenoSel = importacion.relleno != null ? num(importacion.relleno, 15) : 15;
+    seleccion = new Set();
+    for (const b of importacion.bandejas) for (const o of b.objetos) seleccion.add(`${b.indice}:${o.id}`);
     aplicarImportacion();
     tarjetaImportacion();
   } catch (err) {
     importacion = null;
+    objetosSel = 0;
     caja.className = 'importado importado--error';
     caja.innerHTML = `<div class="importado__cuerpo">
-      <span class="importado__titulo">No se pudo leer ${archivo.name}</span>
-      <span class="importado__aviso">${err.message}</span>
+      <span class="importado__titulo">No se pudo leer ${escapar(archivo.name)}</span>
+      <span class="importado__aviso">${escapar(err.message)}</span>
       <span class="importado__aviso">Puedes escribir los gramos y el tiempo a mano: el resto del cálculo funciona igual.</span>
     </div>`;
   }
@@ -2006,7 +2304,11 @@ function cargar() {
     if (!crudo) return;
     const datos = JSON.parse(crudo);
     if (datos && typeof datos === 'object') {
-      estado = estructurar({ ...VALORES_INICIALES, ...datos, materiales: datos.materiales?.length ? datos.materiales : VALORES_INICIALES.materiales });
+      estado = estructurar({
+        ...VALORES_INICIALES,
+        ...datos,
+        materiales: datos.materiales?.length ? datos.materiales : VALORES_INICIALES.materiales,
+      });
     }
   } catch { /* datos corruptos: se ignoran */ }
 }
@@ -2017,49 +2319,13 @@ const leerPerfiles = () => {
 
 function pintarPerfiles() {
   const sel = $('perfiles');
-  const perfiles = leerPerfiles();
   sel.innerHTML = '<option value="">Perfiles…</option>';
-  for (const nombre of Object.keys(perfiles)) {
+  for (const nombre of Object.keys(leerPerfiles())) {
     const o = document.createElement('option');
     o.value = nombre;
     o.textContent = nombre;
     sel.append(o);
   }
-}
-
-/* ── Cotización en texto ──────────────────────────────────────────────── */
-function textoCotizacion() {
-  const r = calcular(estado);
-  const filas = [
-    ['Costo de producción', r.pedido.produccion],
-    r.pedido.diseno > 0 ? ['Diseño', r.pedido.diseno] : null,
-    ['Utilidad', r.pedido.utilidad],
-    r.pedido.envio > 0 ? ['Envío', r.pedido.envio] : null,
-    r.pedido.comision > 0 ? ['Comisión de cobro', r.pedido.comision] : null,
-  ].filter(Boolean);
-
-  const materiales = estado.materiales
-    .filter((m) => num(m.gramos) > 0)
-    .map((m) => `${m.nombre} ${numero(num(m.gramos), 1)} g`)
-    .join(' + ');
-
-  const linea = (a, b) => `${a.padEnd(24, ' ')}${dinero(b).padStart(11, ' ')}`;
-
-  const impresora = String(estado.modeloImpresora || '').trim();
-
-  return [
-    'COTIZACIÓN — IMPRESIÓN 3D',
-    `${r.cantidad} ${r.cantidad === 1 ? 'pieza' : 'piezas'} · ${materiales || 'sin material'} · ${formatoDuracion(r.tiempoH)} por pieza`,
-    impresora ? `Impresora: ${impresora}` : null,
-    ''.padEnd(35, '-'),
-    ...filas.map(([a, b]) => linea(a, b)),
-    linea('Subtotal', r.pedido.precioSinIva),
-    r.pedido.ivaPct > 0 ? linea(`IVA ${numero(r.pedido.ivaPct, 0)} %`, r.pedido.iva) : 'Sin IVA',
-    ''.padEnd(35, '-'),
-    linea('TOTAL', r.pedido.total),
-    `Precio por pieza: ${dinero(r.metricas.precioUnitarioConIva)}`,
-    r.fiscal.retRenta + r.fiscal.retIva > 0 ? `Con retenciones recibes: ${dinero(r.fiscal.aRecibir)}` : null,
-  ].filter(Boolean).join('\n');
 }
 
 /** Mensaje breve en la esquina, sin usar alert(). */
@@ -2078,6 +2344,41 @@ function avisar(texto) {
   caja.dataset.t = setTimeout(() => caja.classList.remove('aviso--visible'), 2200);
 }
 
+/* ── Cotización en texto ──────────────────────────────────────────────── */
+function textoCotizacion() {
+  const r = calcular(estado);
+  const unidad = etiquetaUnidad();
+  const filas = [
+    ['Costo de producción', r.pedido.produccion],
+    r.pedido.diseno > 0 ? ['Diseño', r.pedido.diseno] : null,
+    ['Utilidad', r.pedido.utilidad],
+    r.pedido.envio > 0 ? ['Envío', r.pedido.envio] : null,
+    r.pedido.comision > 0 ? ['Comisión de cobro', r.pedido.comision] : null,
+  ].filter(Boolean);
+
+  const materiales = estado.materiales
+    .filter((m) => num(m.gramos) > 0)
+    .map((m) => `${m.nombre} ${numero(num(m.gramos), 1)} g`)
+    .join(' + ');
+
+  const impresora = String(estado.modeloImpresora || '').trim();
+  const linea = (a, b) => `${a.padEnd(24, ' ')}${dinero(b).padStart(11, ' ')}`;
+
+  return [
+    'COTIZACIÓN — IMPRESIÓN 3D',
+    `${r.cantidad} × ${unidad.larga} · ${materiales || 'sin material'} · ${formatoDuracion(r.tiempoH)} de impresión`,
+    impresora ? `Impresora: ${impresora}` : null,
+    ''.padEnd(35, '-'),
+    ...filas.map(([a, b]) => linea(a, b)),
+    linea('Subtotal', r.pedido.precioSinIva),
+    r.pedido.ivaPct > 0 ? linea(`IVA ${numero(r.pedido.ivaPct, 0)} %`, r.pedido.iva) : 'Sin IVA',
+    ''.padEnd(35, '-'),
+    linea('TOTAL', r.pedido.total),
+    `${unidad.corta}: ${dinero(r.metricas.precioUnitarioConIva)}`,
+    r.fiscal.retRenta + r.fiscal.retIva > 0 ? `Con retenciones recibes: ${dinero(r.fiscal.aRecibir)}` : null,
+  ].filter(Boolean).join('\n');
+}
+
 /* ── Arranque ─────────────────────────────────────────────────────────── */
 function iniciar() {
   poblarSelects();
@@ -2090,17 +2391,30 @@ function iniciar() {
   $('formulario').addEventListener('input', alCambiar);
   $('formulario').addEventListener('change', alCambiar);
 
-  $('medioCobro').addEventListener('change', (ev) => {
-    $('comisionPct').value = ev.target.value;
+  // El último campo de margen que tocas es el que manda.
+  $('margenPct').addEventListener('input', () => { estado.margenModo = 'pct'; marcarModoMargen(); alCambiar(); });
+  $('margenMonto').addEventListener('input', (ev) => {
+    estado.margenModo = num(ev.target.value) > 0 ? 'monto' : 'pct';
+    marcarModoMargen();
     alCambiar();
   });
 
-  $('comisionPct').addEventListener('input', () => {
-    const v = num($('comisionPct').value);
-    const coincide = MEDIOS_COBRO.find((m) => m.valor === v);
-    $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  $('escalones').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-pct]');
+    if (!btn) return;
+    estado.margenModo = 'pct';
+    estado.margenPct = num(btn.dataset.pct);
+    estado.margenMonto = 0;
+    pintarFormulario();
+    pintar();
+    guardar();
   });
 
+  $('medioCobro').addEventListener('change', (ev) => { $('comisionPct').value = ev.target.value; alCambiar(); });
+  $('comisionPct').addEventListener('input', () => {
+    const coincide = MEDIOS_COBRO.find((m) => m.valor === num($('comisionPct').value));
+    $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  });
   $('tipoImpresora').addEventListener('change', (ev) => {
     if (!ev.target.value) return;
     $('potenciaW').value = ev.target.value;
@@ -2151,7 +2465,6 @@ function iniciar() {
     campo.focus();
     campo.select();
   });
-
   $('perfil-nombre').addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') { ev.currentTarget.hidden = true; return; }
     if (ev.key !== 'Enter') return;
@@ -2166,7 +2479,6 @@ function iniciar() {
     ev.currentTarget.hidden = true;
     avisar('Perfil guardado');
   });
-
   $('perfil-nombre').addEventListener('blur', (ev) => { ev.currentTarget.hidden = true; });
 
   $('perfiles').addEventListener('change', (ev) => {
@@ -2180,14 +2492,15 @@ function iniciar() {
 
   $('btn-reset').addEventListener('click', () => {
     estado = estructurar(VALORES_INICIALES);
+    importacion = null;
+    seleccion = new Set();
+    objetosSel = 0;
     pintarFormulario();
     pintar();
     guardar();
-    importacion = null;
     $('importado').hidden = true;
   });
 
-  // Acciones del ticket
   $('btn-imprimir').addEventListener('click', () => window.print());
   $('btn-copiar').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;

@@ -1,6 +1,6 @@
 /** Interfaz de la calculadora: lee el formulario, calcula y pinta el ticket. */
 import {
-  calcular, formatoDuracion, num,
+  calcular, formatoDuracion, num, precioConMargen,
   MATERIALES, MEDIOS_COBRO, RETENCIONES, TIPOS_IMPRESORA, VALORES_INICIALES,
 } from './calc.js';
 import { importarArchivo, estimarGramos } from './importar.js';
@@ -11,9 +11,9 @@ const CLAVE_PERFILES = 'costeo3d-ec:perfiles';
 
 const usd = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD' });
 const usdFino = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', minimumFractionDigits: 3, maximumFractionDigits: 4 });
-const dec = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 2 });
 const dinero = (n) => usd.format(Number.isFinite(n) ? n : 0);
 const numero = (n, d = 2) => new Intl.NumberFormat('es-EC', { maximumFractionDigits: d }).format(Number.isFinite(n) ? n : 0);
+const escapar = (t) => String(t ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 
 const COLOR = {
   material: '--c1', energia: '--c4', maquina: '--c2', consumibles: '--c5',
@@ -21,13 +21,23 @@ const COLOR = {
   envio: '--c-envio', comision: '--c-comision', utilidad: '--c-utilidad',
 };
 
+const ESCALONES = [
+  { nombre: 'Ajustado', pct: 25, pista: 'para clientes que repiten' },
+  { nombre: 'Recomendado', pct: 45, pista: 'pieza a pedido' },
+  { nombre: 'Premium', pct: 90, pista: 'diseño y acabado' },
+];
+
 let estado = estructurar(VALORES_INICIALES);
+let importacion = null;              // ficha del último archivo leído
+let seleccion = new Set();           // objetos marcados: "bandeja:idObjeto"
+let rellenoSel = 15;                 // relleno con el que se estima
+let objetosSel = 0;                  // cuántos objetos entran en una copia
 
 function estructurar(base) {
   return { ...base, materiales: base.materiales.map((m) => ({ ...m })) };
 }
 
-/* ── Poblar los selects fijos ─────────────────────────────────────────── */
+/* ── Selects fijos ────────────────────────────────────────────────────── */
 function poblarSelects() {
   const lista = document.createElement('datalist');
   lista.id = 'lista-materiales';
@@ -40,16 +50,15 @@ function poblarSelects() {
   document.body.append(lista);
 
   const medio = $('medioCobro');
-  MEDIOS_COBRO.forEach((m, i) => {
+  for (const m of MEDIOS_COBRO) {
     const o = document.createElement('option');
     o.value = String(m.valor);
-    o.textContent = m.valor > 0 ? `${m.etiqueta} — ${dec.format(m.valor)} %` : m.etiqueta;
-    o.dataset.indice = String(i);
+    o.textContent = m.valor > 0 ? `${m.etiqueta} — ${numero(m.valor, 1)} %` : m.etiqueta;
     medio.append(o);
-  });
+  }
 
   const tipo = $('tipoImpresora');
-  tipo.innerHTML = '<option value="">Elige para autocompletar…</option>';
+  tipo.innerHTML = '<option value="">Elige la más parecida…</option>';
   for (const t of TIPOS_IMPRESORA) {
     const o = document.createElement('option');
     o.value = String(t.potenciaW);
@@ -121,8 +130,9 @@ function pintarFormulario() {
     if (el.type === 'checkbox') el.checked = estado[clave] !== false;
     else el.value = estado[clave] ?? '';
   }
-  const medio = MEDIOS_COBRO.findIndex((m) => m.valor === num(estado.comisionPct));
-  $('medioCobro').value = medio >= 0 ? String(MEDIOS_COBRO[medio].valor) : String(MEDIOS_COBRO[0].valor);
+  const coincide = MEDIOS_COBRO.find((m) => m.valor === num(estado.comisionPct));
+  $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  marcarModoMargen();
   pintarMateriales();
 }
 
@@ -136,17 +146,31 @@ function leerFormulario() {
   leerMateriales();
 }
 
-/* ── Pintar resultados ────────────────────────────────────────────────── */
+/** Marca visualmente cuál de los dos campos de margen manda. */
+function marcarModoMargen() {
+  const monto = estado.margenModo === 'monto';
+  $('margenPct').closest('.campo').style.opacity = monto ? '.5' : '1';
+  $('margenMonto').closest('.campo').style.opacity = monto ? '1' : '.5';
+}
+
+/* ── Resultados ───────────────────────────────────────────────────────── */
+
+/** Cómo se llama lo que estamos costeando: una pieza o un juego de objetos. */
+function etiquetaUnidad() {
+  if (objetosSel > 1) return { corta: `Por juego de ${objetosSel}`, larga: `juego de ${objetosSel} objetos` };
+  return { corta: 'Por pieza', larga: 'pieza' };
+}
+
 function pintar() {
   const r = calcular(estado);
-  const piezas = r.cantidad === 1 ? '1 pieza' : `${r.cantidad} piezas`;
+  const unidad = etiquetaUnidad();
+  const veces = r.cantidad === 1 ? '' : `${r.cantidad} × `;
 
   $('r-total').textContent = dinero(r.pedido.total);
   $('r-total-movil').textContent = dinero(r.pedido.total);
-  $('r-total-nota').textContent = r.pedido.ivaPct > 0
-    ? `${piezas} · IVA ${numero(r.pedido.ivaPct, 0)} % incluido`
-    : `${piezas} · sin IVA`;
+  $('r-total-nota').textContent = `${veces}${unidad.larga}${r.pedido.ivaPct > 0 ? ` · IVA ${numero(r.pedido.ivaPct, 0)} % incluido` : ' · sin IVA'}`;
 
+  $('r-unitario-et').textContent = unidad.corta;
   $('r-unitario').textContent = dinero(r.metricas.precioUnitarioConIva);
   $('r-costo').textContent = dinero(r.pedido.costoTotal + r.pedido.envio);
   $('r-utilidad').textContent = dinero(r.pedido.utilidad);
@@ -177,7 +201,6 @@ function pintar() {
   $('m-gramos').textContent = `${numero(r.gramosTotales, 1)} g`;
   $('m-tiempo').textContent = formatoDuracion(r.tiempoH * r.cantidad);
 
-  // Barra y leyenda
   const suma = r.desglose.reduce((s, d) => s + d.valor, 0) || 1;
   $('barra').innerHTML = r.desglose
     .map((d) => `<span style="width:${(d.valor / suma) * 100}%;background:var(${COLOR[d.clave]})"></span>`)
@@ -187,97 +210,133 @@ function pintar() {
     .map((d) => `<li><i style="background:var(${COLOR[d.clave]})"></i>${d.etiqueta}<b>${dinero(d.valor)}</b></li>`)
     .join('');
 
-  // Resumen por filamento
   r.unidad.detalleMaterial.forEach((m, i) => {
     const el = $(`mat-resumen-${i}`);
-    if (el) el.textContent = m.gramos > 0
-      ? `${numero(m.gramos, 1)} g · ${dinero(m.precioGramo * 1000)} el kg · ${dinero(m.costo)} por pieza`
-      : 'Sin consumo';
+    if (el) {
+      el.textContent = m.gramos > 0
+        ? `${numero(m.gramos, 1)} g · ${dinero(m.precioGramo * 1000)} el kg · ${dinero(m.costo)} por ${unidad.corta.toLowerCase().replace('por ', '')}`
+        : 'Sin consumo';
+    }
   });
 
+  pintarEscalones();
+  pintarResumenes(r);
   return r;
 }
 
+/** Tres precios de referencia; al hacer clic, ese margen se aplica. */
+function pintarEscalones() {
+  const activo = estado.margenModo !== 'monto' ? num(estado.margenPct) : null;
+  $('escalones').innerHTML = ESCALONES.map((e) => `
+    <button type="button" class="escalon" data-pct="${e.pct}" aria-pressed="${activo === e.pct}">
+      <span class="escalon__nombre">${e.nombre}</span>
+      <span class="escalon__pct">${e.pct} % · ${e.pista}</span>
+      <span class="escalon__precio">${dinero(precioConMargen(estado, e.pct))}</span>
+    </button>`).join('');
+}
+
+/** Lo esencial de cada sección plegada, para no tener que abrirla. */
+function pintarResumenes(r) {
+  $('res-maquina').textContent = [
+    String(estado.modeloImpresora || '').trim() || 'sin modelo',
+    `${numero(estado.potenciaW, 0)} W`,
+    `${dinero(r.horaMaquina)}/h de máquina`,
+  ].join(' · ');
+
+  $('res-taller').textContent = [
+    `${numero(num(estado.prepMin) + num(estado.postMin), 0)} min de trabajo`,
+    `${dinero(estado.tarifaManoObra)}/h`,
+    `${numero(estado.fallosPct, 0)} % de fallos`,
+  ].join(' · ');
+
+  const extras = [];
+  if (num(estado.empaqueUnit) > 0) extras.push(`empaque ${dinero(estado.empaqueUnit)}`);
+  if (num(estado.envio) > 0) extras.push(`envío ${dinero(estado.envio)}`);
+  if (num(estado.comisionPct) > 0) extras.push(`comisión ${numero(estado.comisionPct, 1)} %`);
+  $('res-extras').textContent = extras.length ? extras.join(' · ') : 'sin empaque, envío ni comisiones';
+
+  const ret = [];
+  if (num(estado.retRentaPct) > 0) ret.push(`renta ${numero(estado.retRentaPct, 2)} %`);
+  if (num(estado.retIvaPct) > 0) ret.push(`IVA ${numero(estado.retIvaPct, 0)} %`);
+  $('res-sri').textContent = ret.length ? `${ret.join(' · ')} · recibes ${dinero(r.fiscal.aRecibir)}` : 'sin retenciones';
+}
+
 /* ── Importar .3mf / .gcode ───────────────────────────────────────────── */
-let importacion = null;      // última ficha leída
-let bandejaSel = '1';        // '1', '2'… o 'todas'
-let rellenoSel = 15;
 
-const bandejasElegidas = (info, seleccion) => (seleccion === 'todas'
-  ? info.bandejas
-  : info.bandejas.filter((b) => String(b.indice) === String(seleccion)));
-
-/** Busca el precio y la densidad que ya conocemos para un tipo de filamento. */
 const preset = (nombre) => MATERIALES.find((m) => m.nombre.toLowerCase() === String(nombre || '').toLowerCase())
   || MATERIALES.find((m) => String(nombre || '').toUpperCase().startsWith(m.nombre.toUpperCase()));
+
+/** Gramos de un objeto; si la bandeja no está laminada, se estiman al vuelo. */
+function gramosDe(bandeja, objeto) {
+  if (!bandeja.estimado) return objeto.gramos || 0;
+  return estimarGramos({
+    volumenCm3: objeto.volumenCm3 || 0,
+    superficieCm2: objeto.superficieCm2 || 0,
+    densidad: importacion?.densidad || preset(importacion?.tipo3d)?.densidad || 1.24,
+    rellenoPct: rellenoSel,
+    paredes: importacion?.paredes,
+    boquilla: importacion?.boquilla,
+  });
+}
+
+const marcado = (b, o) => seleccion.has(`${b.indice}:${o.id}`);
+
+/** Suma de lo que está marcado, repartiendo los filamentos de cada bandeja. */
+function totalesSeleccion() {
+  const info = importacion;
+  const t = { segundos: 0, gramos: 0, objetos: 0, porTipo: new Map(), estimado: false };
+  if (!info) return t;
+
+  for (const b of info.bandejas) {
+    const sel = b.objetos.filter((o) => marcado(b, o));
+    if (!sel.length) continue;
+    const gramosBandeja = b.objetos.reduce((s, o) => s + gramosDe(b, o), 0);
+    const gramosSel = sel.reduce((s, o) => s + gramosDe(b, o), 0);
+
+    t.objetos += sel.length;
+    t.gramos += gramosSel;
+    t.segundos += sel.reduce((s, o) => s + (o.segundos || 0), 0);
+    if (b.estimado) t.estimado = true;
+
+    const parte = gramosBandeja > 0 ? gramosSel / gramosBandeja : 0;
+    if (b.filamentos?.length) {
+      for (const f of b.filamentos) t.porTipo.set(f.tipo, (t.porTipo.get(f.tipo) || 0) + f.gramos * parte);
+    } else {
+      const tipo = info.tipo3d || 'PLA';
+      t.porTipo.set(tipo, (t.porTipo.get(tipo) || 0) + gramosSel);
+    }
+  }
+  return t;
+}
 
 function aplicarImportacion() {
   const info = importacion;
   if (!info) return;
-  const elegidas = bandejasElegidas(info, bandejaSel);
-  if (!elegidas.length) return;
+  const t = totalesSeleccion();
+  objetosSel = t.objetos;
 
-  const segundos = elegidas.reduce((s, b) => s + (b.segundos || 0), 0);
-  if (segundos > 0) {
-    estado.horas = Math.floor(segundos / 3600);
-    estado.minutos = Math.round((segundos % 3600) / 60);
-  }
-
-  // Un renglón por tipo de filamento, sumando las bandejas elegidas.
-  const porTipo = new Map();
-  for (const b of elegidas) {
-    for (const f of b.filamentos || []) {
-      const clave = f.tipo || info.tipo3d || 'PLA';
-      porTipo.set(clave, (porTipo.get(clave) || 0) + f.gramos);
-    }
+  if (t.segundos > 0) {
+    estado.horas = Math.floor(t.segundos / 3600);
+    estado.minutos = Math.round((t.segundos % 3600) / 60);
   }
 
   const nombreBonito = (tipo) => {
     const comercial = String(info.filamento || '').trim();
     if (!comercial) return tipo;
-    // "Hyper PLA" ya dice de qué material es; no lo repitas.
     return comercial.toUpperCase().includes(String(tipo).toUpperCase()) ? comercial : `${comercial} ${tipo}`;
   };
 
-  if (porTipo.size) {
-    estado.materiales = [...porTipo].map(([tipo, gramos]) => {
+  const tipos = [...t.porTipo].filter(([, g]) => g > 0.01);
+  if (tipos.length) {
+    estado.materiales = tipos.map(([tipo, gramos]) => {
       const p = preset(tipo);
       return {
-        nombre: porTipo.size === 1 ? nombreBonito(tipo) : tipo,
+        nombre: tipos.length === 1 ? nombreBonito(tipo) : tipo,
         precioBobina: info.precioKg || p?.precioBobina || 22,
         pesoBobina: 1000,
         gramos: Math.round(gramos * 10) / 10,
       };
     });
-  } else {
-    const gramosLaminados = elegidas.reduce((s, b) => s + (b.gramos || 0), 0);
-    const tipo = info.tipo3d || 'PLA';
-    const p = preset(tipo);
-    let gramos = gramosLaminados;
-
-    if (!gramos) {
-      const volumen = elegidas.reduce((s, b) => s + (b.volumenCm3 || 0), 0);
-      const superficie = elegidas.reduce((s, b) => s + (b.superficieCm2 || 0), 0);
-      if (volumen > 0) {
-        gramos = estimarGramos({
-          volumenCm3: volumen,
-          superficieCm2: superficie,
-          densidad: info.densidad || p?.densidad || 1.24,
-          rellenoPct: rellenoSel,
-          paredes: info.paredes,
-          boquilla: info.boquilla,
-        });
-      }
-    }
-
-    if (gramos > 0) {
-      estado.materiales = [{
-        nombre: nombreBonito(tipo),
-        precioBobina: info.precioKg || p?.precioBobina || 22,
-        pesoBobina: 1000,
-        gramos: Math.round(gramos * 10) / 10,
-      }];
-    }
   }
 
   if (info.impresora && !String(estado.modeloImpresora || '').trim()) {
@@ -295,22 +354,9 @@ function tarjetaImportacion() {
   caja.hidden = false;
   caja.className = 'importado';
 
-  const elegidas = bandejasElegidas(info, bandejaSel);
-  const segundos = elegidas.reduce((s, b) => s + (b.segundos || 0), 0);
-  const gramos = elegidas.reduce((s, b) => s + (b.gramos || 0), 0);
-  const metros = elegidas.reduce((s, b) => s + (b.metros || 0), 0);
-  const volumen = elegidas.reduce((s, b) => s + (b.volumenCm3 || 0), 0);
-  const objetos = elegidas.flatMap((b) => b.objetos || []);
-  const estimando = !gramos && volumen > 0;
-
-  const etiquetaBandeja = (b) => {
-    const partes = [];
-    if (b.segundos) partes.push(formatoDuracion(b.segundos / 3600));
-    if (b.gramos) partes.push(`${numero(b.gramos, 1)} g`);
-    else if (b.volumenCm3) partes.push(`${numero(b.volumenCm3, 0)} cm³`);
-    if (b.objetos?.length) partes.push(`${b.objetos.length} ${b.objetos.length === 1 ? 'objeto' : 'objetos'}`);
-    return `Bandeja ${b.indice}${b.nombre ? ` · ${b.nombre}` : ''}${partes.length ? ` — ${partes.join(' · ')}` : ''}`;
-  };
+  const t = totalesSeleccion();
+  const estimando = info.bandejas.some((b) => b.estimado);
+  const bandejaVista = info.bandejas.find((b) => b.objetos.some((o) => marcado(b, o))) || info.bandejas[0];
 
   const ficha = [
     info.impresora ? ['Impresora', info.impresora] : null,
@@ -318,31 +364,39 @@ function tarjetaImportacion() {
     info.filamento || info.tipo3d ? ['Filamento', [info.filamento || info.tipo3d, info.marca ? `(${info.marca})` : ''].join(' ').trim()] : null,
     info.alturaCapa ? ['Capa y boquilla', `${numero(info.alturaCapa, 2)} mm · boquilla ${numero(info.boquilla || 0.4, 2)} mm`] : null,
     info.relleno != null ? ['Relleno del perfil', `${numero(info.relleno, 0)} %`] : null,
-    gramos ? ['Filamento usado', `${numero(gramos, 2)} g${metros ? ` · ${numero(metros, 2)} m` : ''}`] : null,
-    !gramos && volumen ? ['Volumen medido', `${numero(volumen, 1)} cm³`] : null,
-    segundos ? ['Tiempo de impresión', formatoDuracion(segundos / 3600)] : null,
-    objetos.length ? ['Objetos', objetos.slice(0, 6).join(', ') + (objetos.length > 6 ? ` y ${objetos.length - 6} más` : '')] : null,
   ].filter(Boolean);
 
-  const opciones = [
-    ...info.bandejas.map((b) => `<option value="${b.indice}"${String(b.indice) === bandejaSel ? ' selected' : ''}>${etiquetaBandeja(b)}</option>`),
-    info.bandejas.length > 1
-      ? `<option value="todas"${bandejaSel === 'todas' ? ' selected' : ''}>Las ${info.bandejas.length} bandejas juntas</option>`
-      : '',
-  ].join('');
+  const listaBandejas = info.bandejas.map((b) => {
+    const sel = b.objetos.filter((o) => marcado(b, o)).length;
+    const gramos = b.objetos.reduce((s, o) => s + gramosDe(b, o), 0);
+    const resumen = [
+      b.segundos ? formatoDuracion(b.segundos / 3600) : null,
+      `${numero(gramos, 1)} g`,
+      `${b.objetos.length} ${b.objetos.length === 1 ? 'objeto' : 'objetos'}`,
+    ].filter(Boolean).join(' · ');
+
+    const items = b.objetos.map((o) => `
+      <label class="objetos__item">
+        <input type="checkbox" data-obj="${b.indice}:${escapar(o.id)}"${marcado(b, o) ? ' checked' : ''}>
+        <span>${escapar(o.nombre)}</span>
+        <span class="mono">${numero(gramosDe(b, o), 1)} g${o.segundos ? ` · ${formatoDuracion(o.segundos / 3600)}` : ''}</span>
+      </label>`).join('');
+
+    return `
+      <div class="objetos__bandeja">
+        <input type="checkbox" data-bandeja="${b.indice}" aria-label="Marcar toda la bandeja ${b.indice}"${sel === b.objetos.length ? ' checked' : ''}>
+        <span>Bandeja ${b.indice}${b.nombre ? ` · ${escapar(b.nombre)}` : ''}</span>
+        <span class="mono">${resumen}</span>
+      </div>
+      ${items}`;
+  }).join('');
 
   caja.innerHTML = `
-    ${info.miniatura ? `<img src="${elegidas[0]?.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
+    ${bandejaVista?.miniatura || info.miniatura ? `<img src="${bandejaVista?.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
     <div class="importado__cuerpo">
-      <span class="importado__titulo">${info.archivo}</span>
+      <span class="importado__titulo">${escapar(info.archivo)}</span>
       <span class="importado__aviso">Leído ${info.origen || 'del archivo'}.</span>
-
-      ${info.bandejas.length > 1 ? `
-        <label class="importado__campo">Qué costeo
-          <select id="sel-bandeja">${opciones}</select>
-        </label>` : ''}
-
-      ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
+      ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${k}</dt><dd>${escapar(v)}</dd></div>`).join('')}</dl>` : ''}
 
       ${estimando ? `
         <label class="importado__campo">Relleno para estimar
@@ -351,21 +405,70 @@ function tarjetaImportacion() {
           </select>
         </label>` : ''}
 
+      <div class="objetos">
+        ${listaBandejas}
+        <p class="objetos__total">${t.objetos
+          ? `Vas a costear ${t.objetos} ${t.objetos === 1 ? 'objeto' : 'objetos'} · ${numero(t.gramos, 1)} g${t.segundos ? ` · ${formatoDuracion(t.segundos / 3600)}` : ''}`
+          : 'No has marcado ningún objeto todavía.'}</p>
+      </div>
+
       ${(info.avisos || []).map((a) => `<span class="importado__aviso"><strong>Ojo:</strong> ${a}</span>`).join('')}
-      ${!segundos ? '<span class="importado__aviso"><strong>Ojo:</strong> falta el tiempo de impresión. Escríbelo abajo.</span>' : ''}
+      ${!t.segundos ? '<span class="importado__aviso"><strong>Ojo:</strong> falta el tiempo de impresión. Escríbelo en Tiempo de impresión y luz.</span>' : ''}
     </div>`;
 
-  $('sel-bandeja')?.addEventListener('change', (ev) => {
-    bandejaSel = ev.target.value;
+  caja.querySelectorAll('[data-obj]').forEach((el) => el.addEventListener('change', (ev) => {
+    const clave = ev.target.dataset.obj;
+    if (ev.target.checked) seleccion.add(clave); else seleccion.delete(clave);
     aplicarImportacion();
-    tarjetaImportacion();
-  });
+    refrescarSeleccion();
+  }));
 
+  caja.querySelectorAll('[data-bandeja]').forEach((el) => el.addEventListener('change', (ev) => {
+    const bandeja = info.bandejas.find((b) => String(b.indice) === ev.target.dataset.bandeja);
+    for (const o of bandeja.objetos) {
+      const clave = `${bandeja.indice}:${o.id}`;
+      if (ev.target.checked) seleccion.add(clave); else seleccion.delete(clave);
+      const casilla = caja.querySelector(`[data-obj="${CSS.escape(clave)}"]`);
+      if (casilla) casilla.checked = ev.target.checked;
+    }
+    aplicarImportacion();
+    refrescarSeleccion();
+  }));
+
+  // El relleno sí cambia los gramos de cada objeto: hay que repintar la lista.
   $('relleno-import')?.addEventListener('change', (ev) => {
     rellenoSel = num(ev.target.value, 15);
     aplicarImportacion();
     tarjetaImportacion();
   });
+
+  refrescarSeleccion();
+}
+
+/**
+ * Refresca solo el total y las casillas de bandeja, sin reconstruir la lista:
+ * marcar objetos no debe hacer parpadear la tarjeta ni perder el foco.
+ */
+function refrescarSeleccion() {
+  const info = importacion;
+  const caja = $('importado');
+  if (!info || caja.hidden) return;
+
+  for (const b of info.bandejas) {
+    const casilla = caja.querySelector(`[data-bandeja="${b.indice}"]`);
+    if (!casilla) continue;
+    const marcados = b.objetos.filter((o) => marcado(b, o)).length;
+    casilla.checked = marcados === b.objetos.length;
+    casilla.indeterminate = marcados > 0 && marcados < b.objetos.length;
+  }
+
+  const t = totalesSeleccion();
+  const total = caja.querySelector('.objetos__total');
+  if (total) {
+    total.textContent = t.objetos
+      ? `Vas a costear ${t.objetos} ${t.objetos === 1 ? 'objeto' : 'objetos'} · ${numero(t.gramos, 1)} g${t.segundos ? ` · ${formatoDuracion(t.segundos / 3600)}` : ''}`
+      : 'No has marcado ningún objeto todavía.';
+  }
 }
 
 async function manejarArchivo(archivo) {
@@ -373,19 +476,21 @@ async function manejarArchivo(archivo) {
   const caja = $('importado');
   caja.hidden = false;
   caja.className = 'importado';
-  caja.innerHTML = `<div class="importado__cuerpo"><span class="importado__titulo">Leyendo ${archivo.name}…</span></div>`;
+  caja.innerHTML = `<div class="importado__cuerpo"><span class="importado__titulo">Leyendo ${escapar(archivo.name)}…</span></div>`;
   try {
     importacion = await importarArchivo(archivo);
-    bandejaSel = String(importacion.bandejas[0]?.indice ?? 1);
     rellenoSel = importacion.relleno != null ? num(importacion.relleno, 15) : 15;
+    seleccion = new Set();
+    for (const b of importacion.bandejas) for (const o of b.objetos) seleccion.add(`${b.indice}:${o.id}`);
     aplicarImportacion();
     tarjetaImportacion();
   } catch (err) {
     importacion = null;
+    objetosSel = 0;
     caja.className = 'importado importado--error';
     caja.innerHTML = `<div class="importado__cuerpo">
-      <span class="importado__titulo">No se pudo leer ${archivo.name}</span>
-      <span class="importado__aviso">${err.message}</span>
+      <span class="importado__titulo">No se pudo leer ${escapar(archivo.name)}</span>
+      <span class="importado__aviso">${escapar(err.message)}</span>
       <span class="importado__aviso">Puedes escribir los gramos y el tiempo a mano: el resto del cálculo funciona igual.</span>
     </div>`;
   }
@@ -402,7 +507,11 @@ function cargar() {
     if (!crudo) return;
     const datos = JSON.parse(crudo);
     if (datos && typeof datos === 'object') {
-      estado = estructurar({ ...VALORES_INICIALES, ...datos, materiales: datos.materiales?.length ? datos.materiales : VALORES_INICIALES.materiales });
+      estado = estructurar({
+        ...VALORES_INICIALES,
+        ...datos,
+        materiales: datos.materiales?.length ? datos.materiales : VALORES_INICIALES.materiales,
+      });
     }
   } catch { /* datos corruptos: se ignoran */ }
 }
@@ -413,49 +522,13 @@ const leerPerfiles = () => {
 
 function pintarPerfiles() {
   const sel = $('perfiles');
-  const perfiles = leerPerfiles();
   sel.innerHTML = '<option value="">Perfiles…</option>';
-  for (const nombre of Object.keys(perfiles)) {
+  for (const nombre of Object.keys(leerPerfiles())) {
     const o = document.createElement('option');
     o.value = nombre;
     o.textContent = nombre;
     sel.append(o);
   }
-}
-
-/* ── Cotización en texto ──────────────────────────────────────────────── */
-function textoCotizacion() {
-  const r = calcular(estado);
-  const filas = [
-    ['Costo de producción', r.pedido.produccion],
-    r.pedido.diseno > 0 ? ['Diseño', r.pedido.diseno] : null,
-    ['Utilidad', r.pedido.utilidad],
-    r.pedido.envio > 0 ? ['Envío', r.pedido.envio] : null,
-    r.pedido.comision > 0 ? ['Comisión de cobro', r.pedido.comision] : null,
-  ].filter(Boolean);
-
-  const materiales = estado.materiales
-    .filter((m) => num(m.gramos) > 0)
-    .map((m) => `${m.nombre} ${numero(num(m.gramos), 1)} g`)
-    .join(' + ');
-
-  const linea = (a, b) => `${a.padEnd(24, ' ')}${dinero(b).padStart(11, ' ')}`;
-
-  const impresora = String(estado.modeloImpresora || '').trim();
-
-  return [
-    'COTIZACIÓN — IMPRESIÓN 3D',
-    `${r.cantidad} ${r.cantidad === 1 ? 'pieza' : 'piezas'} · ${materiales || 'sin material'} · ${formatoDuracion(r.tiempoH)} por pieza`,
-    impresora ? `Impresora: ${impresora}` : null,
-    ''.padEnd(35, '-'),
-    ...filas.map(([a, b]) => linea(a, b)),
-    linea('Subtotal', r.pedido.precioSinIva),
-    r.pedido.ivaPct > 0 ? linea(`IVA ${numero(r.pedido.ivaPct, 0)} %`, r.pedido.iva) : 'Sin IVA',
-    ''.padEnd(35, '-'),
-    linea('TOTAL', r.pedido.total),
-    `Precio por pieza: ${dinero(r.metricas.precioUnitarioConIva)}`,
-    r.fiscal.retRenta + r.fiscal.retIva > 0 ? `Con retenciones recibes: ${dinero(r.fiscal.aRecibir)}` : null,
-  ].filter(Boolean).join('\n');
 }
 
 /** Mensaje breve en la esquina, sin usar alert(). */
@@ -474,6 +547,41 @@ function avisar(texto) {
   caja.dataset.t = setTimeout(() => caja.classList.remove('aviso--visible'), 2200);
 }
 
+/* ── Cotización en texto ──────────────────────────────────────────────── */
+function textoCotizacion() {
+  const r = calcular(estado);
+  const unidad = etiquetaUnidad();
+  const filas = [
+    ['Costo de producción', r.pedido.produccion],
+    r.pedido.diseno > 0 ? ['Diseño', r.pedido.diseno] : null,
+    ['Utilidad', r.pedido.utilidad],
+    r.pedido.envio > 0 ? ['Envío', r.pedido.envio] : null,
+    r.pedido.comision > 0 ? ['Comisión de cobro', r.pedido.comision] : null,
+  ].filter(Boolean);
+
+  const materiales = estado.materiales
+    .filter((m) => num(m.gramos) > 0)
+    .map((m) => `${m.nombre} ${numero(num(m.gramos), 1)} g`)
+    .join(' + ');
+
+  const impresora = String(estado.modeloImpresora || '').trim();
+  const linea = (a, b) => `${a.padEnd(24, ' ')}${dinero(b).padStart(11, ' ')}`;
+
+  return [
+    'COTIZACIÓN — IMPRESIÓN 3D',
+    `${r.cantidad} × ${unidad.larga} · ${materiales || 'sin material'} · ${formatoDuracion(r.tiempoH)} de impresión`,
+    impresora ? `Impresora: ${impresora}` : null,
+    ''.padEnd(35, '-'),
+    ...filas.map(([a, b]) => linea(a, b)),
+    linea('Subtotal', r.pedido.precioSinIva),
+    r.pedido.ivaPct > 0 ? linea(`IVA ${numero(r.pedido.ivaPct, 0)} %`, r.pedido.iva) : 'Sin IVA',
+    ''.padEnd(35, '-'),
+    linea('TOTAL', r.pedido.total),
+    `${unidad.corta}: ${dinero(r.metricas.precioUnitarioConIva)}`,
+    r.fiscal.retRenta + r.fiscal.retIva > 0 ? `Con retenciones recibes: ${dinero(r.fiscal.aRecibir)}` : null,
+  ].filter(Boolean).join('\n');
+}
+
 /* ── Arranque ─────────────────────────────────────────────────────────── */
 function iniciar() {
   poblarSelects();
@@ -486,17 +594,30 @@ function iniciar() {
   $('formulario').addEventListener('input', alCambiar);
   $('formulario').addEventListener('change', alCambiar);
 
-  $('medioCobro').addEventListener('change', (ev) => {
-    $('comisionPct').value = ev.target.value;
+  // El último campo de margen que tocas es el que manda.
+  $('margenPct').addEventListener('input', () => { estado.margenModo = 'pct'; marcarModoMargen(); alCambiar(); });
+  $('margenMonto').addEventListener('input', (ev) => {
+    estado.margenModo = num(ev.target.value) > 0 ? 'monto' : 'pct';
+    marcarModoMargen();
     alCambiar();
   });
 
-  $('comisionPct').addEventListener('input', () => {
-    const v = num($('comisionPct').value);
-    const coincide = MEDIOS_COBRO.find((m) => m.valor === v);
-    $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  $('escalones').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-pct]');
+    if (!btn) return;
+    estado.margenModo = 'pct';
+    estado.margenPct = num(btn.dataset.pct);
+    estado.margenMonto = 0;
+    pintarFormulario();
+    pintar();
+    guardar();
   });
 
+  $('medioCobro').addEventListener('change', (ev) => { $('comisionPct').value = ev.target.value; alCambiar(); });
+  $('comisionPct').addEventListener('input', () => {
+    const coincide = MEDIOS_COBRO.find((m) => m.valor === num($('comisionPct').value));
+    $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  });
   $('tipoImpresora').addEventListener('change', (ev) => {
     if (!ev.target.value) return;
     $('potenciaW').value = ev.target.value;
@@ -547,7 +668,6 @@ function iniciar() {
     campo.focus();
     campo.select();
   });
-
   $('perfil-nombre').addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') { ev.currentTarget.hidden = true; return; }
     if (ev.key !== 'Enter') return;
@@ -562,7 +682,6 @@ function iniciar() {
     ev.currentTarget.hidden = true;
     avisar('Perfil guardado');
   });
-
   $('perfil-nombre').addEventListener('blur', (ev) => { ev.currentTarget.hidden = true; });
 
   $('perfiles').addEventListener('change', (ev) => {
@@ -576,14 +695,15 @@ function iniciar() {
 
   $('btn-reset').addEventListener('click', () => {
     estado = estructurar(VALORES_INICIALES);
+    importacion = null;
+    seleccion = new Set();
+    objetosSel = 0;
     pintarFormulario();
     pintar();
     guardar();
-    importacion = null;
     $('importado').hidden = true;
   });
 
-  // Acciones del ticket
   $('btn-imprimir').addEventListener('click', () => window.print());
   $('btn-copiar').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;

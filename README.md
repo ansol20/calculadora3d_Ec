@@ -20,7 +20,7 @@ el tiempo de impresión; el resto son tus números de taller.
 | Diseño | minutos de modelado × tu tarifa de diseño, una sola vez por pedido |
 | Fallos | el costo de producción se divide por `1 − % de fallos`, que es lo que cuesta en promedio entregar una pieza buena |
 | Empaque y envío | por pieza y por pedido; el envío se traslada sin margen |
-| Margen | porcentaje sobre el costo del pedido |
+| Margen | porcentaje sobre el costo del pedido, o una ganancia fija en dólares |
 | Comisión de cobro | se suma por dentro (`precio ÷ (1 − comisión)`) para que la pasarela no se coma el margen |
 | IVA | 15 %, desactivable si estás en RIMPE negocio popular |
 | Retenciones | 1 %, 1.75 % o 2 % de renta y 30 %, 70 % o 100 % del IVA: no cambian tu utilidad, solo lo que llega al banco |
@@ -37,9 +37,14 @@ el tiempo de impresión; el resto son tus números de taller.
 | `.3mf` sin laminar (MakerWorld) | mide la geometría siguiendo las mallas externas (`p:path` → `3D/Objects/*.model`) y estima los gramos con las paredes y el relleno reales |
 | `.gcode` | comentarios de totales de PrusaSlicer, Orca, Bambu Studio y Cura |
 
-Cuando el proyecto trae varias bandejas puedes costear una sola o todas
-juntas, y la ficha muestra impresora, perfil, filamento, altura de capa,
-relleno, gramos, metros, tiempo y los objetos de esa bandeja.
+Cada objeto de cada bandeja se puede marcar o desmarcar: puedes costear toda
+la bandeja 1 más dos piezas sueltas de la bandeja 2, y el tiempo, los gramos y
+el precio se recalculan solos. El peso real del laminador se reparte entre los
+objetos según su volumen, así que el total de una bandeja completa es exacto y
+el de una selección parcial es aproximado (la calculadora lo dice).
+
+La ficha muestra impresora, perfil de proceso, filamento con su nombre
+comercial, altura de capa, boquilla y relleno.
 
 El ZIP se lee en el navegador con `DecompressionStream`, sin librerías y sin
 subir nada a ningún servidor.
@@ -76,6 +81,16 @@ assets/app.js         wiring: formulario, ticket, perfiles guardados
 tests/                25 pruebas con node:test
 tools/build.mjs       empaquetado a un solo archivo
 ```
+
+## Cómo está organizada
+
+Arriba queda lo que se toca siempre — archivo, filamento, tiempo y precio — y
+lo demás vive en secciones plegadas que muestran su resumen sin abrirlas
+("120 W · $0,11/h de máquina"). Cada campo tiene un `?` que explica de dónde
+sale el número, en vez de párrafos de ayuda permanentes.
+
+Tres escalones de precio (Ajustado, Recomendado, Premium) proponen el total
+con distintos márgenes; al hacer clic, ese margen se aplica.
 
 ## Los números de arranque
 
