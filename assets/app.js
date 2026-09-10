@@ -4,6 +4,7 @@ import {
   MATERIALES, MEDIOS_COBRO, RETENCIONES, TIPOS_IMPRESORA, VALORES_INICIALES,
 } from './calc.js';
 import { importarArchivo, estimarGramos } from './importar.js';
+import { crearVisor } from './visor.js';
 
 const $ = (id) => document.getElementById(id);
 const CLAVE_ESTADO = 'costeo3d-ec:estado';
@@ -34,6 +35,7 @@ let rellenoSel = 15;                 // relleno con el que se estima
 let objetosSel = 0;                  // cuántos objetos entran en una copia
 let bandejaVista = 1;                // bandeja cuya lista de objetos se muestra
 let faltaTiempo = false;             // el archivo no traía tiempo de impresión
+let visor = null;                    // visor 3D de la bandeja (null si no hay WebGL)
 
 const SECCIONES = [
   { det: 'det-maquina', clave: 'usaMaquina', res: 'res-maquina' },
@@ -391,11 +393,65 @@ function aplicarImportacion() {
   guardar();
 }
 
+/** Colores del visor, tomados de los mismos tokens que el resto de la página. */
+function temaVisor() {
+  const css = getComputedStyle(document.documentElement);
+  const leer = (n, alt) => (css.getPropertyValue(n).trim() || alt);
+  return {
+    plato: leer('--linea', '#d3dbde'),
+    rejilla: leer('--tinta-suave', '#6b7e86'),
+    activo: leer('--c3', '#1b7a9e'),
+    apagado: leer('--tinta-suave', '#6b7e86'),
+    resaltado: leer('--ambar', '#b9720a'),
+  };
+}
+
+/** Carga la bandeja que se está viendo en el visor 3D. */
+function refrescarVisor() {
+  const caja = $('visor-caja');
+  const info = importacion;
+  const vista = info?.bandejas.find((b) => b.indice === bandejaVista);
+  const conMalla = vista?.objetos.filter((o) => o.puntos?.length) || [];
+
+  if (!conMalla.length) {
+    caja.hidden = true;
+    return;
+  }
+
+  if (!visor) {
+    visor = crearVisor($('visor-lienzo'), { tema: temaVisor() });
+    if (!visor) { caja.hidden = true; return; }
+    visor.alClic((pieza) => alternarObjeto(`${bandejaVista}:${pieza.id}`));
+    visor.alPasar((pieza) => {
+      $('visor-mensaje').textContent = pieza
+        ? `${pieza.nombre} — clic para ${seleccion.has(`${bandejaVista}:${pieza.id}`) ? 'sacarla del' : 'meterla al'} pedido`
+        : 'Haz clic en una pieza para sacarla o meterla en el pedido. Arrastra para girar, rueda para acercar.';
+    });
+    window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => visor.tema(temaVisor()));
+  }
+
+  caja.hidden = false;
+  if (caja.dataset.bandeja !== String(bandejaVista) || caja.dataset.archivo !== info.archivo) {
+    caja.dataset.bandeja = String(bandejaVista);
+    caja.dataset.archivo = info.archivo;
+    visor.cargar({ objetos: conMalla, plato: info.plato });
+  }
+  visor.marcar(conMalla.filter((o) => marcado(vista, o)).map((o) => o.id));
+}
+
+/** Mete o saca un objeto del pedido desde cualquier sitio: lista o visor. */
+function alternarObjeto(clave) {
+  if (seleccion.has(clave)) seleccion.delete(clave); else seleccion.add(clave);
+  const casilla = $('importado').querySelector(`[data-obj="${CSS.escape(clave)}"]`);
+  if (casilla) casilla.checked = seleccion.has(clave);
+  aplicarImportacion();
+  refrescarSeleccion();
+}
+
 function tarjetaImportacion() {
   const info = importacion;
   const caja = $('importado');
   caja.hidden = false;
-  caja.className = 'importado';
 
   const t = totalesSeleccion();
   const estimando = info.bandejas.some((b) => b.estimado);
@@ -444,32 +500,27 @@ function tarjetaImportacion() {
       <span class="mono">${vista.objetos.length} ${vista.objetos.length === 1 ? 'objeto' : 'objetos'}</span>
     </div>`;
 
-  caja.innerHTML = `
-    ${!varias && (vista.miniatura || info.miniatura) ? `<img src="${vista.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
-    <div class="importado__cuerpo">
-      <span class="importado__titulo">${escapar(info.archivo)}</span>
-      <span class="importado__aviso">Leído ${info.origen || 'del archivo'}.</span>
-      ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${k}</dt><dd>${escapar(v)}</dd></div>`).join('')}</dl>` : ''}
+  $('imp-cabeza').innerHTML = `
+    <span class="importado__titulo">${escapar(info.archivo)}</span>
+    <span class="importado__aviso">Leído ${info.origen || 'del archivo'}.</span>
+    ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${k}</dt><dd>${escapar(v)}</dd></div>`).join('')}</dl>` : ''}
+    ${estimando ? `
+      <label class="importado__campo">Relleno para estimar
+        <select id="relleno-import">
+          ${[10, 15, 20, 25, 40, 60, 100].map((v) => `<option value="${v}"${v === rellenoSel ? ' selected' : ''}>${v} %</option>`).join('')}
+        </select>
+      </label>` : ''}`;
 
-      ${estimando ? `
-        <label class="importado__campo">Relleno para estimar
-          <select id="relleno-import">
-            ${[10, 15, 20, 25, 40, 60, 100].map((v) => `<option value="${v}"${v === rellenoSel ? ' selected' : ''}>${v} %</option>`).join('')}
-          </select>
-        </label>` : ''}
+  $('imp-lista').innerHTML = `
+    ${tira}
+    <div class="objetos">
+      ${cabeceraObjetos}
+      ${items}
+      <p class="objetos__total"></p>
+    </div>
+    ${(info.avisos || []).map((a) => `<span class="importado__aviso"><strong>Ojo:</strong> ${a}</span>`).join('')}`;
 
-      ${tira}
-      <div class="objetos">
-        ${cabeceraObjetos}
-        ${items}
-        <p class="objetos__total">${t.objetos
-          ? `Vas a costear ${t.objetos} ${t.objetos === 1 ? 'objeto' : 'objetos'} · ${numero(t.gramos, 1)} g${t.segundos ? ` · ${formatoDuracion(t.segundos / 3600)}` : ''}`
-          : 'No has marcado ningún objeto todavía.'}</p>
-      </div>
-
-      ${(info.avisos || []).map((a) => `<span class="importado__aviso"><strong>Ojo:</strong> ${a}</span>`).join('')}
-      ${!t.segundos ? '<span class="importado__aviso"><strong>Ojo:</strong> falta el tiempo de impresión. Escríbelo en Tiempo de impresión y luz.</span>' : ''}
-    </div>`;
+  refrescarVisor();
 
   caja.querySelectorAll('[data-obj]').forEach((el) => el.addEventListener('change', (ev) => {
     const clave = ev.target.dataset.obj;
@@ -524,6 +575,11 @@ function refrescarSeleccion() {
     if (placa) placa.textContent = `${marcados} de ${b.objetos.length}`;
   }
 
+  const vistaActual = info.bandejas.find((b) => b.indice === bandejaVista);
+  if (visor && vistaActual) {
+    visor.marcar(vistaActual.objetos.filter((o) => o.puntos?.length && marcado(vistaActual, o)).map((o) => o.id));
+  }
+
   const t = totalesSeleccion();
   const total = caja.querySelector('.objetos__total');
   if (total) {
@@ -538,7 +594,9 @@ async function manejarArchivo(archivo) {
   const caja = $('importado');
   caja.hidden = false;
   caja.className = 'importado';
-  caja.innerHTML = `<div class="importado__cuerpo"><span class="importado__titulo">Leyendo ${escapar(archivo.name)}…</span></div>`;
+  caja.className = 'importado';
+  $('imp-cabeza').innerHTML = `<span class="importado__titulo">Leyendo ${escapar(archivo.name)}…</span>`;
+  $('imp-lista').innerHTML = '';
   try {
     importacion = await importarArchivo(archivo);
     bandejaVista = importacion.bandejas[0]?.indice ?? 1;
@@ -551,11 +609,12 @@ async function manejarArchivo(archivo) {
     importacion = null;
     objetosSel = 0;
     caja.className = 'importado importado--error';
-    caja.innerHTML = `<div class="importado__cuerpo">
+    $('visor-caja').hidden = true;
+    $('imp-lista').innerHTML = '';
+    $('imp-cabeza').innerHTML = `
       <span class="importado__titulo">No se pudo leer ${escapar(archivo.name)}</span>
       <span class="importado__aviso">${escapar(err.message)}</span>
-      <span class="importado__aviso">Puedes escribir los gramos y el tiempo a mano: el resto del cálculo funciona igual.</span>
-    </div>`;
+      <span class="importado__aviso">Puedes escribir los gramos y el tiempo a mano: el resto del cálculo funciona igual.</span>`;
   }
 }
 
@@ -782,11 +841,15 @@ function iniciar() {
     objetosSel = 0;
     faltaTiempo = false;
     bandejaVista = 1;
+    $('visor-caja').hidden = true;
+    $('visor-caja').dataset.archivo = '';
     pintarFormulario();
     pintar();
     guardar();
     $('importado').hidden = true;
   });
+
+  $('visor-encuadrar').addEventListener('click', () => visor?.encuadrar());
 
   $('btn-imprimir').addEventListener('click', () => window.print());
   $('btn-copiar').addEventListener('click', async (ev) => {

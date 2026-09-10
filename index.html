@@ -42,7 +42,17 @@
         <span class="soltar__ayuda" id="soltar-ayuda">También acepta .gcode. Todo se lee en tu navegador: el archivo nunca se sube a ningún servidor.</span>
         <input type="file" id="archivo" accept=".3mf,.gcode,.gco,.g" hidden>
       </div>
-      <div class="importado" id="importado" hidden></div>
+      <div class="importado" id="importado" hidden>
+        <div class="importado__cuerpo" id="imp-cabeza"></div>
+        <figure class="visor" id="visor-caja" hidden>
+          <canvas id="visor-lienzo" aria-label="Vista 3D de la bandeja"></canvas>
+          <figcaption class="visor__pie">
+            <span id="visor-mensaje">Haz clic en una pieza para sacarla o meterla en el pedido. Arrastra para girar, rueda para acercar.</span>
+            <button type="button" class="visor__boton" id="visor-encuadrar">Encuadrar</button>
+          </figcaption>
+        </figure>
+        <div class="importado__cuerpo" id="imp-lista"></div>
+      </div>
     </section>
 
     <!-- ─── Material ──────────────────────────────────────────────────── -->

@@ -23,7 +23,7 @@ const desmodular = (src) => src
 const html = await leer('index.html');
 const css = await leer('assets/estilos.css');
 const modulos = await Promise.all(
-  ['assets/calc.js', 'assets/importar.js', 'assets/app.js'].map(leer),
+  ['assets/calc.js', 'assets/importar.js', 'assets/visor.js', 'assets/app.js'].map(leer),
 );
 const js = modulos.map(desmodular).join('\n\n');
 

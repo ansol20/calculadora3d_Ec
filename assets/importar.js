@@ -247,19 +247,64 @@ function leerAjustes(txt) {
     alturaCapa: numero(d.layer_height),
     impresora,
     perfil: limpiar(d.print_settings_id),
+    plato: medidasPlato(d.printable_area, numero(d.printable_height)),
   };
+}
+
+/** "260x260" en las esquinas de printable_area → tamaño del plato en mm. */
+function medidasPlato(area, alto) {
+  if (!Array.isArray(area) || !area.length) return null;
+  let ancho = 0;
+  let fondo = 0;
+  for (const punto of area) {
+    const [x, y] = String(punto).split('x').map(Number);
+    if (Number.isFinite(x)) ancho = Math.max(ancho, x);
+    if (Number.isFinite(y)) fondo = Math.max(fondo, y);
+  }
+  return ancho > 0 && fondo > 0 ? { ancho, fondo, alto: alto || 250 } : null;
 }
 
 /* ── Geometría ────────────────────────────────────────────────────────── */
 
+/* ── Geometría ────────────────────────────────────────────────────────── */
+
+/** Transformada 3mf: 12 números, filas de la base y traslación al final. */
+const IDENTIDAD = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
+
+function comoMatriz(attr) {
+  if (!attr) return IDENTIDAD;
+  const n = attr.trim().split(/\s+/).map(Number);
+  return n.length >= 12 && n.every(Number.isFinite) ? n : IDENTIDAD;
+}
+
+/** Aplica `hija` y después `padre`, como manda el anidamiento de componentes. */
+function componer(hija, padre) {
+  const r = new Array(12);
+  for (let i = 0; i < 4; i++) {
+    const x = hija[i * 3];
+    const y = hija[i * 3 + 1];
+    const z = hija[i * 3 + 2];
+    const t = i === 3 ? 1 : 0;
+    r[i * 3] = x * padre[0] + y * padre[3] + z * padre[6] + t * padre[9];
+    r[i * 3 + 1] = x * padre[1] + y * padre[4] + z * padre[7] + t * padre[10];
+    r[i * 3 + 2] = x * padre[2] + y * padre[5] + z * padre[8] + t * padre[11];
+  }
+  return r;
+}
+
 /**
- * Mide volumen y superficie de cada objeto de la placa, siguiendo las partes
- * externas: los proyectos de MakerWorld abiertos en Creality Print, Bambu
- * Studio u Orca no guardan las mallas dentro de 3dmodel.model, sino en un
- * archivo por objeto bajo 3D/Objects/ enlazado con el atributo p:path.
+ * Lee la geometría de cada objeto de la placa y la deja en coordenadas del
+ * plato, lista tanto para medirla como para dibujarla en el visor 3D.
+ *
+ * Los proyectos de MakerWorld abiertos en Creality Print, Bambu Studio u Orca
+ * no guardan las mallas dentro de 3dmodel.model: cada objeto vive en su propio
+ * archivo bajo 3D/Objects/ y se referencia con el atributo p:path de la
+ * extensión "production" del formato.
  */
-async function medirModelo(zip, rutaRaiz) {
+async function leerGeometria(zip, rutaRaiz, limiteTriangulos = 1200000) {
   const partes = new Map();
+  let triangulos = 0;
+  let truncado = false;
 
   const cargarParte = async (ruta) => {
     const clave = ruta.replace(/^\//, '');
@@ -272,66 +317,64 @@ async function medirModelo(zip, rutaRaiz) {
     return parte;
   };
 
-  /** Volumen (mm³) y superficie (mm²) de la malla propia de un objeto. */
-  const medirMalla = (objeto) => {
+  /** Vuelca la malla de un objeto, ya transformada, en el acumulador. */
+  const volcarMalla = (objeto, m, acc) => {
     const malla = objeto.querySelector(':scope > mesh');
-    if (!malla) return { v: 0, a: 0 };
-    const vs = [...malla.querySelectorAll('vertices > vertex')].map((v) => [
-      parseFloat(v.getAttribute('x')) || 0,
-      parseFloat(v.getAttribute('y')) || 0,
-      parseFloat(v.getAttribute('z')) || 0,
-    ]);
-    let v6 = 0;
-    let a2 = 0;
-    for (const t of malla.querySelectorAll('triangles > triangle')) {
-      const a = vs[+t.getAttribute('v1')];
-      const b = vs[+t.getAttribute('v2')];
-      const c = vs[+t.getAttribute('v3')];
-      if (!a || !b || !c) continue;
-      v6 += a[0] * (b[1] * c[2] - c[1] * b[2])
-          - a[1] * (b[0] * c[2] - c[0] * b[2])
-          + a[2] * (b[0] * c[1] - c[0] * b[1]);
-      const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-      const w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-      a2 += Math.hypot(
-        u[1] * w[2] - u[2] * w[1],
-        u[2] * w[0] - u[0] * w[2],
-        u[0] * w[1] - u[1] * w[0],
-      );
+    if (!malla) return;
+
+    const crudos = malla.querySelectorAll('vertices > vertex');
+    const vs = new Float64Array(crudos.length * 3);
+    let k = 0;
+    for (const v of crudos) {
+      const x = parseFloat(v.getAttribute('x')) || 0;
+      const y = parseFloat(v.getAttribute('y')) || 0;
+      const z = parseFloat(v.getAttribute('z')) || 0;
+      vs[k++] = x * m[0] + y * m[3] + z * m[6] + m[9];
+      vs[k++] = x * m[1] + y * m[4] + z * m[7] + m[10];
+      vs[k++] = x * m[2] + y * m[5] + z * m[8] + m[11];
     }
-    return { v: Math.abs(v6) / 6, a: a2 / 2 };
+
+    for (const t of malla.querySelectorAll('triangles > triangle')) {
+      const a = (+t.getAttribute('v1')) * 3;
+      const b = (+t.getAttribute('v2')) * 3;
+      const c = (+t.getAttribute('v3')) * 3;
+      if (!(a >= 0 && b >= 0 && c >= 0) || c + 2 >= vs.length) continue;
+
+      const ax = vs[a], ay = vs[a + 1], az = vs[a + 2];
+      const bx = vs[b], by = vs[b + 1], bz = vs[b + 2];
+      const cx = vs[c], cy = vs[c + 1], cz = vs[c + 2];
+
+      acc.v6 += ax * (by * cz - cy * bz) - ay * (bx * cz - cx * bz) + az * (bx * cy - cx * by);
+
+      const ux = bx - ax, uy = by - ay, uz = bz - az;
+      const wx = cx - ax, wy = cy - ay, wz = cz - az;
+      const nx = uy * wz - uz * wy;
+      const ny = uz * wx - ux * wz;
+      const nz = ux * wy - uy * wx;
+      acc.a2 += Math.hypot(nx, ny, nz);
+
+      if (triangulos < limiteTriangulos) {
+        acc.puntos.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+        triangulos++;
+      } else {
+        truncado = true;
+      }
+    }
   };
 
-  /** Factor de escala de una transformada 3mf (12 números, 4×3). */
-  const escalaDe = (attr) => {
-    if (!attr) return 1;
-    const n = attr.trim().split(/\s+/).map(Number);
-    if (n.length < 9 || n.some((x) => !Number.isFinite(x))) return 1;
-    const det = n[0] * (n[4] * n[8] - n[5] * n[7])
-              - n[1] * (n[3] * n[8] - n[5] * n[6])
-              + n[2] * (n[3] * n[7] - n[4] * n[6]);
-    return Math.abs(det) || 1;
-  };
-
-  const medirObjeto = async (ruta, id, visitados) => {
+  const recorrer = async (ruta, id, m, acc, visitados) => {
     const marca = `${ruta}#${id}`;
-    if (visitados.has(marca)) return { v: 0, a: 0 };
+    if (visitados.has(marca)) return;
     visitados.add(marca);
     const parte = await cargarParte(ruta);
     const objeto = parte.objetos.get(id);
-    if (!objeto) return { v: 0, a: 0 };
+    if (!objeto) return;
 
-    const { v: v0, a: a0 } = medirMalla(objeto);
-    let v = v0;
-    let a = a0;
+    volcarMalla(objeto, m, acc);
     for (const c of objeto.querySelectorAll(':scope > components > component')) {
-      const rutaHijo = c.getAttribute('p:path') || ruta;
-      const escala = escalaDe(c.getAttribute('transform'));
-      const hijo = await medirObjeto(rutaHijo, c.getAttribute('objectid'), visitados);
-      v += hijo.v * escala;
-      a += hijo.a * escala ** (2 / 3);
+      const rutaHija = c.getAttribute('p:path') || ruta;
+      await recorrer(rutaHija, c.getAttribute('objectid'), componer(comoMatriz(c.getAttribute('transform')), m), acc, visitados);
     }
-    return { v, a };
   };
 
   const raiz = await cargarParte(rutaRaiz);
@@ -339,24 +382,33 @@ async function medirModelo(zip, rutaRaiz) {
 
   const unidad = raiz.doc.documentElement.getAttribute('unit') || 'millimeter';
   const aMm = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 }[unidad] ?? 1;
+  const escalaUnidad = aMm === 1 ? IDENTIDAD : [aMm, 0, 0, 0, aMm, 0, 0, 0, aMm, 0, 0, 0];
 
-  const porObjeto = new Map();
   const items = [...raiz.doc.querySelectorAll('build > item')];
   const fuentes = items.length
-    ? items.map((i) => ({ id: i.getAttribute('objectid'), escala: escalaDe(i.getAttribute('transform')), imprimible: i.getAttribute('printable') !== '0' }))
-    : [...raiz.objetos.keys()].map((id) => ({ id, escala: 1, imprimible: true }));
+    ? items.map((i) => ({ id: i.getAttribute('objectid'), m: comoMatriz(i.getAttribute('transform')), imprimible: i.getAttribute('printable') !== '0' }))
+    : [...raiz.objetos.keys()].map((id) => ({ id, m: IDENTIDAD, imprimible: true }));
 
+  const porObjeto = new Map();
   for (const f of fuentes) {
     if (!f.imprimible) continue;
-    const m = await medirObjeto(rutaRaiz, f.id, new Set());
-    const cm3 = (m.v * f.escala * aMm ** 3) / 1000;
-    const cm2 = (m.a * f.escala ** (2 / 3) * aMm ** 2) / 100;
+    const acc = { v6: 0, a2: 0, puntos: [] };
+    await recorrer(rutaRaiz, f.id, componer(f.m, escalaUnidad), acc, new Set());
+    const cm3 = Math.abs(acc.v6) / 6 / 1000;
     if (!(cm3 > 0)) continue;
-    const previo = porObjeto.get(f.id) || { cm3: 0, cm2: 0 };
-    porObjeto.set(f.id, { cm3: previo.cm3 + cm3, cm2: previo.cm2 + cm2 });
+
+    const previo = porObjeto.get(f.id);
+    const entrada = {
+      cm3: (previo?.cm3 || 0) + cm3,
+      cm2: (previo?.cm2 || 0) + acc.a2 / 2 / 100,
+      puntos: previo ? Float32Array.from([...previo.puntos, ...acc.puntos]) : Float32Array.from(acc.puntos),
+    };
+    porObjeto.set(f.id, entrada);
   }
 
-  return porObjeto.size ? porObjeto : null;
+  if (!porObjeto.size) return null;
+  porObjeto.truncado = truncado;
+  return porObjeto;
 }
 
 /**
@@ -438,7 +490,10 @@ export async function leer3mf(archivo) {
   // La geometría se mide siempre: sin laminado sirve para estimar, y con
   // laminado sirve para repartir el peso real entre los objetos de la bandeja.
   const rutaMalla = buscarEntrada(zip, '3D/3dmodel.model');
-  const porObjeto = rutaMalla ? await medirModelo(zip, rutaMalla) : null;
+  const porObjeto = rutaMalla ? await leerGeometria(zip, rutaMalla) : null;
+  if (porObjeto?.truncado) {
+    r.avisos.push('El modelo es enorme, así que el visor muestra solo una parte de la malla. Los gramos y el tiempo no se ven afectados.');
+  }
 
   // Bandejas exportadas como G-code dentro del propio .3mf.
   const gcodes = [...zip.entradas.keys()].filter((n) => /plate_\d+\.gcode$/i.test(n)).sort();
@@ -519,6 +574,7 @@ export async function leer3mf(archivo) {
           segundos: bandeja.segundos * parte,
           volumenCm3: o.medida.cm3,
           superficieCm2: o.medida.cm2,
+          puntos: o.medida.puntos,
           estimado: bandeja.gramos <= 0,
         };
       });

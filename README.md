@@ -38,11 +38,16 @@ el tiempo de impresión; el resto son tus números de taller.
 | `.3mf` sin laminar (MakerWorld) | mide la geometría siguiendo las mallas externas (`p:path` → `3D/Objects/*.model`) y estima los gramos con las paredes y el relleno reales |
 | `.gcode` | comentarios de totales de PrusaSlicer, Orca, Bambu Studio y Cura |
 
-Las bandejas se muestran como una tira de miniaturas —igual que en el
-laminador— y abajo solo salen los objetos de la que estés viendo, así diez
-bandejas siguen cabiendo en pantalla. Cada objeto se marca o desmarca: puedes
-costear toda la bandeja 1 más dos piezas sueltas de la bandeja 2, y el tiempo,
-los gramos y el precio se recalculan solos. El peso real del laminador se reparte entre los
+La bandeja se ve en 3D sobre el plato real de la impresora: giras con el
+ratón, acercas con la rueda y haces clic en una pieza para sacarla del pedido
+—queda como un fantasma translúcido— o para volver a meterla. Las bandejas se
+eligen en una tira de miniaturas y abajo salen solo los objetos de la que
+estés viendo, así diez bandejas siguen cabiendo en pantalla. El tiempo, los
+gramos y el precio se recalculan con cada clic.
+
+El visor es WebGL escrito a mano en `assets/visor.js`, sin Three.js ni ninguna
+otra librería: sombreado plano, rejilla del plato en sus medidas reales
+(`printable_area` del proyecto) y selección por color de identificación. El peso real del laminador se reparte entre los
 objetos según su volumen, así que el total de una bandeja completa es exacto y
 el de una selección parcial es aproximado (la calculadora lo dice).
 
@@ -80,8 +85,9 @@ index.html            Markup completo de la interfaz
 assets/estilos.css    tokens de color (claro y oscuro), layout y estilos de impresión
 assets/calc.js        motor de cálculo, funciones puras y probadas
 assets/importar.js    lector de ZIP, .3mf y G-code
+assets/visor.js       visor 3D en WebGL, sin librerías
 assets/app.js         wiring: formulario, ticket, perfiles guardados
-tests/                25 pruebas con node:test
+tests/                32 pruebas con node:test
 tools/build.mjs       empaquetado a un solo archivo
 ```
 

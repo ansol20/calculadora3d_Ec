@@ -298,7 +298,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .soltar__ayuda { font-size: 11.5px; color: var(--tinta-suave); max-width: 46ch; }
 
 .importado {
-  display: flex; gap: 12px; align-items: flex-start;
+  display: flex; flex-direction: column; gap: 10px;
   padding: 12px;
   border: 1px solid var(--acento);
   background: var(--acento-claro);
@@ -668,3 +668,34 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   text-decoration: underline; text-underline-offset: 2px;
 }
 .quitar-seccion:hover { color: var(--alerta); }
+
+/* ── Visor 3D de la bandeja ───────────────────────────────────────────── */
+.visor {
+  margin: 0;
+  border: 1px solid var(--linea-fuerte);
+  border-radius: var(--radio-s);
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--panel) 0%, var(--panel-2) 60%, var(--hundido) 100%);
+  overflow: hidden;
+}
+.visor canvas {
+  display: block; width: 100%;
+  height: clamp(210px, 34vw, 320px);
+  touch-action: none; cursor: grab;
+}
+.visor canvas:active { cursor: grabbing; }
+.visor__pie {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--linea);
+  background: var(--panel);
+  font-size: 11.5px; line-height: 1.35; color: var(--tinta-suave);
+}
+.visor__pie span { flex: 1 1 auto; min-width: 0; }
+.visor__boton {
+  flex: none; padding: 5px 9px;
+  border: 1px solid var(--linea-fuerte); border-radius: var(--radio-s);
+  background: var(--panel); color: var(--tinta);
+  font: 500 11.5px/1 var(--sans); cursor: pointer;
+}
+.visor__boton:hover { border-color: var(--acento); color: var(--acento); }
