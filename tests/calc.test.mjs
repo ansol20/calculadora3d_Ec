@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  calcular, costoHoraMaquina, costoMaterial, formatoDuracion, num, precioConMargen, VALORES_INICIALES,
+  calcular, costoHoraMaquina, costoMaterial, cuantoSumaria, formatoDuracion, num, precioConMargen, VALORES_INICIALES,
 } from '../assets/calc.js';
 
 const cerca = (a, b, tol = 1e-9) => assert.ok(Math.abs(a - b) < tol, `${a} ≠ ${b}`);
@@ -17,6 +17,9 @@ const base = {
   disenoMin: 0, fallosPct: 0, empaqueUnit: 0, envio: 0,
   margenPct: 0, comisionPct: 0, cobraIva: false,
   retRentaPct: 0, retIvaPct: 0,
+  // Las pruebas de fórmulas necesitan todas las partidas activas; el
+  // comportamiento apagado se prueba aparte, más abajo.
+  usaMaquina: true, usaTaller: true, usaExtras: true, usaSri: true,
 };
 
 test('num acepta coma decimal y descarta basura', () => {
@@ -176,4 +179,66 @@ test('precioConMargen no altera la entrada original', () => {
   assert.equal(JSON.stringify(entrada), copia);
   assert.ok(p60 > p20);
   cerca(p60, calcular({ ...entrada, margenPct: 60 }).pedido.total);
+});
+
+/* ── Básico contra avanzado ──────────────────────────────────────────────
+   Las secciones avanzadas arrancan apagadas: lo que no se ve, no se cobra. */
+
+const basico = {
+  ...base,
+  usaMaquina: false, usaTaller: false, usaExtras: false, usaSri: false,
+  consumiblesHora: 0.05, prepMin: 30, postMin: 30, tarifaManoObra: 6,
+  disenoMin: 60, tarifaDiseno: 12, fallosPct: 20,
+  empaqueUnit: 0.5, envio: 5, comisionPct: 5,
+  retRentaPct: 2, retIvaPct: 70, cobraIva: true, ivaPct: 15, margenPct: 0,
+};
+
+test('apagado, el costo es solo filamento y luz', () => {
+  const r = calcular(basico);
+  cerca(r.unidad.costo, 2 + 0.10);
+  cerca(r.unidad.maquina, 0);
+  cerca(r.unidad.manoObra, 0);
+  cerca(r.unidad.riesgo, 0);
+  cerca(r.unidad.empaque, 0);
+  cerca(r.pedido.diseno, 0);
+  cerca(r.pedido.envio, 0);
+  cerca(r.pedido.comision, 0);
+  cerca(r.fiscal.retRenta, 0);
+  cerca(r.fiscal.retIva, 0);
+});
+
+test('cada sección suma solo la suya', () => {
+  const conMaquina = calcular({ ...basico, usaMaquina: true });
+  cerca(conMaquina.unidad.maquina, 0.15 * 5);
+  cerca(conMaquina.unidad.consumibles, 0.05 * 5);
+  cerca(conMaquina.unidad.manoObra, 0);
+
+  const conTaller = calcular({ ...basico, usaTaller: true });
+  cerca(conTaller.unidad.manoObra, 6);
+  assert.ok(conTaller.unidad.riesgo > 0);
+  cerca(conTaller.pedido.diseno, 12);
+  cerca(conTaller.unidad.maquina, 0);
+
+  const conExtras = calcular({ ...basico, usaExtras: true });
+  cerca(conExtras.unidad.empaque, 0.5);
+  cerca(conExtras.pedido.envio, 5);
+  assert.ok(conExtras.pedido.comision > 0);
+
+  const conSri = calcular({ ...basico, usaSri: true, margenPct: 40 });
+  assert.ok(conSri.fiscal.retRenta > 0 && conSri.fiscal.retIva > 0);
+});
+
+test('encender todo equivale al cálculo completo de siempre', () => {
+  const todo = { ...basico, usaMaquina: true, usaTaller: true, usaExtras: true, usaSri: true };
+  const r = calcular(todo);
+  const produccion = 2 + 0.10 + 0.75 + 0.25 + 6;
+  cerca(r.unidad.costo, produccion / 0.8 + 0.5);
+});
+
+test('cuantoSumaria dice lo que se está dejando fuera', () => {
+  const delta = cuantoSumaria(basico, 'usaTaller');
+  const encendido = calcular({ ...basico, usaTaller: true }).pedido.total;
+  cerca(delta, encendido - calcular(basico).pedido.total);
+  assert.ok(delta > 0);
+  cerca(cuantoSumaria({ ...basico, usaTaller: true }, 'usaTaller'), 0);
 });

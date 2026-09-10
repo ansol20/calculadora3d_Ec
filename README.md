@@ -14,6 +14,7 @@ el tiempo de impresión; el resto son tus números de taller.
 | Filamento | gramos × (precio de bobina ÷ contenido), con varias bobinas si usas AMS. Si te lo venden por kilo, deja 1000 g de contenido |
 | Desperdicio y purga | porcentaje sobre los gramos: torre de purga, faldas, soportes, el resto de bobina |
 | Electricidad | consumo medio en W × horas × tarifa por kWh. Hay arquetipos de máquina para arrancar, pero lo exacto lo da un medidor de enchufe |
+| Tiempo | lo pone el archivo. Si el proyecto no está laminado, queda en cero y el campo se marca en ámbar en vez de heredar un valor de ejemplo |
 | Máquina | depreciación (precio ÷ vida útil) + mantenimiento anual repartido entre las horas que imprimes al año |
 | Consumibles | valor por hora: laca, alcohol, lijas, guantes, silica |
 | Mano de obra | minutos de preparación y post-proceso × tu tarifa por hora |
@@ -37,9 +38,11 @@ el tiempo de impresión; el resto son tus números de taller.
 | `.3mf` sin laminar (MakerWorld) | mide la geometría siguiendo las mallas externas (`p:path` → `3D/Objects/*.model`) y estima los gramos con las paredes y el relleno reales |
 | `.gcode` | comentarios de totales de PrusaSlicer, Orca, Bambu Studio y Cura |
 
-Cada objeto de cada bandeja se puede marcar o desmarcar: puedes costear toda
-la bandeja 1 más dos piezas sueltas de la bandeja 2, y el tiempo, los gramos y
-el precio se recalculan solos. El peso real del laminador se reparte entre los
+Las bandejas se muestran como una tira de miniaturas —igual que en el
+laminador— y abajo solo salen los objetos de la que estés viendo, así diez
+bandejas siguen cabiendo en pantalla. Cada objeto se marca o desmarca: puedes
+costear toda la bandeja 1 más dos piezas sueltas de la bandeja 2, y el tiempo,
+los gramos y el precio se recalculan solos. El peso real del laminador se reparte entre los
 objetos según su volumen, así que el total de una bandeja completa es exacto y
 el de una selección parcial es aproximado (la calculadora lo dice).
 
@@ -82,12 +85,19 @@ tests/                25 pruebas con node:test
 tools/build.mjs       empaquetado a un solo archivo
 ```
 
-## Cómo está organizada
+## Básico y avanzado
 
-Arriba queda lo que se toca siempre — archivo, filamento, tiempo y precio — y
-lo demás vive en secciones plegadas que muestran su resumen sin abrirlas
-("120 W · $0,11/h de máquina"). Cada campo tiene un `?` que explica de dónde
-sale el número, en vez de párrafos de ayuda permanentes.
+Lo básico siempre cuenta: filamento, desperdicio, tiempo, luz, margen e IVA.
+
+Las cuatro secciones avanzadas — máquina, taller, extras y SRI — arrancan
+**apagadas y no suman nada**. Se encienden al abrirlas, y una vez encendidas
+siguen contando aunque las vuelvas a plegar; el enlace *no cobrar esto* las
+apaga. Mientras están apagadas su resumen dice cuánto subiría el precio si las
+activaras ("no se está cobrando · sumaría $4,69"), así se ve lo que se está
+dejando fuera sin que nada se cobre a escondidas.
+
+Cada campo tiene un `?` que explica de dónde sale el número, en vez de
+párrafos de ayuda permanentes.
 
 Tres escalones de precio (Ajustado, Recomendado, Premium) proponen el total
 con distintos márgenes; al hacer clic, ese margen se aplica.

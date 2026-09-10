@@ -66,7 +66,7 @@
     <!-- ─── Tiempo y luz ──────────────────────────────────────────────── -->
     <section class="bloque">
       <h2 class="bloque__titulo"><span class="eyebrow">Energía</span>Tiempo de impresión y luz</h2>
-      <div class="campos campos--3">
+      <div class="campos campos--2">
         <div class="campo ">
           <span class="campo__nombre"><label for="horas">Horas</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Sale solo de los objetos que marcaste arriba. Si escribes a mano, usa el tiempo que te dice el laminador.</span></button></span>
           <span class="campo__control"><input type="number" id="horas" data-campo="horas" min="0" step="1" inputmode="numeric"><span class="campo__unidad">h</span></span>
@@ -74,6 +74,14 @@
         <div class="campo ">
           <span class="campo__nombre"><label for="minutos">Minutos</label></span>
           <span class="campo__control"><input type="number" id="minutos" data-campo="minutos" min="0" max="59" step="1" inputmode="numeric"><span class="campo__unidad">min</span></span>
+        </div>
+        <div class="campo">
+          <span class="campo__nombre"><label for="potenciaW">Consumo de la impresora</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">El promedio de toda la impresión, no el pico. Un medidor de enchufe de $10 te da el número exacto de tu máquina.</span></button></span>
+          <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
+        </div>
+        <div class="campo">
+          <span class="campo__nombre"><label for="tipoImpresora">¿No sabes cuánto consume?</label></span>
+          <span class="campo__control campo__control--select"><select id="tipoImpresora"></select></span>
         </div>
         <div class="campo ">
           <span class="campo__nombre"><label for="tarifaKwh">Tarifa eléctrica</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Míralo en tu planilla, dividido kWh consumidos. En Ecuador la residencial ronda $0,092–0,10 y la comercial $0,10–0,12.</span></button></span>
@@ -108,22 +116,13 @@
 
     <!-- ─── Máquina ───────────────────────────────────────────────────── -->
     <details class="bloque bloque--plegable" id="det-maquina">
-      <summary class="bloque__titulo"><span class="eyebrow">Máquina</span>Tu impresora<span class="resumen" id="res-maquina"></span></summary>
+      <summary class="bloque__titulo"><span class="eyebrow">Máquina</span>Tu impresora<span class="resumen" id="res-maquina"></span><button type="button" class="quitar-seccion" data-apagar="det-maquina" hidden>no cobrar esto</button></summary>
       <div class="bloque__cuerpo">
         <div class="campos campos--2">
         <div class="campo ">
           <span class="campo__nombre"><label for="modeloImpresora">Modelo</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Se llena solo con la impresora que trae tu .3mf. Sale impreso en la cotización.</span></button></span>
           <span class="campo__control"><input type="text" id="modeloImpresora" data-campo="modeloImpresora" placeholder="Creality SPARKX i7" autocomplete="off"></span>
         </div>
-        <div class="campo ">
-          <span class="campo__nombre"><label for="potenciaW">Consumo medio</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">El promedio de toda la impresión, no el pico. Un medidor de enchufe de $10 te da el número exacto; si no lo tienes, usa el atajo de abajo.</span></button></span>
-          <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
-        </div>
-        </div>
-        <div class="campo">
-          <span class="campo__nombre"><label for="tipoImpresora">¿No sabes tu consumo?</label></span>
-          <span class="campo__control campo__control--select"><select id="tipoImpresora"></select></span>
-          <span class="campo__pista">Elige la máquina más parecida a la tuya y se copia un valor de arranque al campo de arriba.</span>
         </div>
         <div class="campos campos--2">
         <div class="campo ">
@@ -152,7 +151,7 @@
 
     <!-- ─── Taller ────────────────────────────────────────────────────── -->
     <details class="bloque bloque--plegable" id="det-taller">
-      <summary class="bloque__titulo"><span class="eyebrow">Taller</span>Tu tiempo y el riesgo<span class="resumen" id="res-taller"></span></summary>
+      <summary class="bloque__titulo"><span class="eyebrow">Taller</span>Tu tiempo y el riesgo<span class="resumen" id="res-taller"></span><button type="button" class="quitar-seccion" data-apagar="det-taller" hidden>no cobrar esto</button></summary>
       <div class="bloque__cuerpo">
         <div class="campos campos--3">
         <div class="campo ">
@@ -185,7 +184,7 @@
 
     <!-- ─── Extras ────────────────────────────────────────────────────── -->
     <details class="bloque bloque--plegable" id="det-extras">
-      <summary class="bloque__titulo"><span class="eyebrow">Extras</span>Empaque, envío y cobro<span class="resumen" id="res-extras"></span></summary>
+      <summary class="bloque__titulo"><span class="eyebrow">Extras</span>Empaque, envío y cobro<span class="resumen" id="res-extras"></span><button type="button" class="quitar-seccion" data-apagar="det-extras" hidden>no cobrar esto</button></summary>
       <div class="bloque__cuerpo">
         <p class="nota">Todo esto es opcional: si no empacas ni envías, déjalo en cero y no afecta el precio.</p>
         <div class="campos campos--2">
@@ -213,7 +212,7 @@
 
     <!-- ─── SRI ───────────────────────────────────────────────────────── -->
     <details class="bloque bloque--plegable" id="det-sri">
-      <summary class="bloque__titulo"><span class="eyebrow">SRI</span>Retenciones<span class="resumen" id="res-sri"></span></summary>
+      <summary class="bloque__titulo"><span class="eyebrow">SRI</span>Retenciones<span class="resumen" id="res-sri"></span><button type="button" class="quitar-seccion" data-apagar="det-sri" hidden>no cobrar esto</button></summary>
       <div class="bloque__cuerpo">
         <p class="nota">Solo si le facturas a una empresa que es agente de retención. No cambian tu precio ni tu utilidad: una parte del cobro se va como crédito tributario y la recuperas en tu declaración.</p>
         <div class="campos campos--2">
@@ -238,6 +237,8 @@
         <p class="ticket__total mono" id="r-total">$0,00</p>
         <p class="ticket__detalle" id="r-total-nota">IVA 15 % incluido</p>
       </header>
+
+      <p class="alerta" id="aviso-tiempo" hidden>Falta el tiempo de impresión. Sin él no se está cobrando ni la luz ni la máquina: escríbelo en <strong>Tiempo de impresión y luz</strong>.</p>
 
       <div class="ticket__cifras">
         <div class="cifra">

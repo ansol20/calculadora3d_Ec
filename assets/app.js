@@ -1,6 +1,6 @@
 /** Interfaz de la calculadora: lee el formulario, calcula y pinta el ticket. */
 import {
-  calcular, formatoDuracion, num, precioConMargen,
+  calcular, cuantoSumaria, formatoDuracion, num, precioConMargen,
   MATERIALES, MEDIOS_COBRO, RETENCIONES, TIPOS_IMPRESORA, VALORES_INICIALES,
 } from './calc.js';
 import { importarArchivo, estimarGramos } from './importar.js';
@@ -32,6 +32,15 @@ let importacion = null;              // ficha del último archivo leído
 let seleccion = new Set();           // objetos marcados: "bandeja:idObjeto"
 let rellenoSel = 15;                 // relleno con el que se estima
 let objetosSel = 0;                  // cuántos objetos entran en una copia
+let bandejaVista = 1;                // bandeja cuya lista de objetos se muestra
+let faltaTiempo = false;             // el archivo no traía tiempo de impresión
+
+const SECCIONES = [
+  { det: 'det-maquina', clave: 'usaMaquina', res: 'res-maquina' },
+  { det: 'det-taller', clave: 'usaTaller', res: 'res-taller' },
+  { det: 'det-extras', clave: 'usaExtras', res: 'res-extras' },
+  { det: 'det-sri', clave: 'usaSri', res: 'res-sri' },
+];
 
 function estructurar(base) {
   return { ...base, materiales: base.materiales.map((m) => ({ ...m })) };
@@ -132,6 +141,9 @@ function pintarFormulario() {
   }
   const coincide = MEDIOS_COBRO.find((m) => m.valor === num(estado.comisionPct));
   $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  for (const sec of SECCIONES) {
+    if (estado[sec.clave]) $(sec.det).open = true;
+  }
   marcarModoMargen();
   pintarMateriales();
 }
@@ -219,6 +231,12 @@ function pintar() {
     }
   });
 
+  const sinTiempo = faltaTiempo && r.tiempoH <= 0;
+  for (const id of ['horas', 'minutos']) {
+    $(id).closest('.campo').classList.toggle('campo--pendiente', sinTiempo);
+  }
+  $('aviso-tiempo').hidden = !sinTiempo;
+
   pintarEscalones();
   pintarResumenes(r);
   return r;
@@ -235,30 +253,47 @@ function pintarEscalones() {
     </button>`).join('');
 }
 
-/** Lo esencial de cada sección plegada, para no tener que abrirla. */
+/**
+ * Resumen de cada sección plegada. Si está apagada, en vez de sus valores
+ * dice cuánto subiría el precio al encenderla: así el usuario ve lo que se
+ * está dejando fuera sin que nadie le cobre nada a sus espaldas.
+ */
 function pintarResumenes(r) {
-  $('res-maquina').textContent = [
-    String(estado.modeloImpresora || '').trim() || 'sin modelo',
-    `${numero(estado.potenciaW, 0)} W`,
-    `${dinero(r.horaMaquina)}/h de máquina`,
-  ].join(' · ');
+  const activa = {
+    usaMaquina: [
+      String(estado.modeloImpresora || '').trim() || 'sin modelo',
+      `${dinero(r.horaMaquina)}/h de máquina`,
+    ].join(' · '),
+    usaTaller: [
+      `${numero(num(estado.prepMin) + num(estado.postMin), 0)} min de trabajo`,
+      `${dinero(estado.tarifaManoObra)}/h`,
+      `${numero(estado.fallosPct, 0)} % de fallos`,
+    ].join(' · '),
+    usaExtras: (() => {
+      const x = [];
+      if (num(estado.empaqueUnit) > 0) x.push(`empaque ${dinero(estado.empaqueUnit)}`);
+      if (num(estado.envio) > 0) x.push(`envío ${dinero(estado.envio)}`);
+      if (num(estado.comisionPct) > 0) x.push(`comisión ${numero(estado.comisionPct, 1)} %`);
+      return x.length ? x.join(' · ') : 'activado, pero todo en cero';
+    })(),
+    usaSri: (() => {
+      const x = [];
+      if (num(estado.retRentaPct) > 0) x.push(`renta ${numero(estado.retRentaPct, 2)} %`);
+      if (num(estado.retIvaPct) > 0) x.push(`IVA ${numero(estado.retIvaPct, 0)} %`);
+      return x.length ? `${x.join(' · ')} · recibes ${dinero(r.fiscal.aRecibir)}` : 'activado, sin retenciones elegidas';
+    })(),
+  };
 
-  $('res-taller').textContent = [
-    `${numero(num(estado.prepMin) + num(estado.postMin), 0)} min de trabajo`,
-    `${dinero(estado.tarifaManoObra)}/h`,
-    `${numero(estado.fallosPct, 0)} % de fallos`,
-  ].join(' · ');
-
-  const extras = [];
-  if (num(estado.empaqueUnit) > 0) extras.push(`empaque ${dinero(estado.empaqueUnit)}`);
-  if (num(estado.envio) > 0) extras.push(`envío ${dinero(estado.envio)}`);
-  if (num(estado.comisionPct) > 0) extras.push(`comisión ${numero(estado.comisionPct, 1)} %`);
-  $('res-extras').textContent = extras.length ? extras.join(' · ') : 'sin empaque, envío ni comisiones';
-
-  const ret = [];
-  if (num(estado.retRentaPct) > 0) ret.push(`renta ${numero(estado.retRentaPct, 2)} %`);
-  if (num(estado.retIvaPct) > 0) ret.push(`IVA ${numero(estado.retIvaPct, 0)} %`);
-  $('res-sri').textContent = ret.length ? `${ret.join(' · ')} · recibes ${dinero(r.fiscal.aRecibir)}` : 'sin retenciones';
+  for (const sec of SECCIONES) {
+    const encendida = estado[sec.clave] === true;
+    const suma = encendida ? 0 : cuantoSumaria(estado, sec.clave);
+    $(sec.res).textContent = encendida
+      ? activa[sec.clave]
+      : (suma > 0.005 ? `no se está cobrando · sumaría ${dinero(suma)}` : 'no se está cobrando');
+    $(sec.res).classList.toggle('resumen--apagada', !encendida);
+    const apagar = document.querySelector(`[data-apagar="${sec.det}"]`);
+    if (apagar) apagar.hidden = !encendida;
+  }
 }
 
 /* ── Importar .3mf / .gcode ───────────────────────────────────────────── */
@@ -315,9 +350,17 @@ function aplicarImportacion() {
   const t = totalesSeleccion();
   objetosSel = t.objetos;
 
+  // El tiempo manda el archivo. Si no lo trae, se pone en cero y se marca:
+  // dejar el valor de ejemplo cobraría luz y máquina de una impresión que
+  // nadie sabe cuánto dura.
   if (t.segundos > 0) {
     estado.horas = Math.floor(t.segundos / 3600);
     estado.minutos = Math.round((t.segundos % 3600) / 60);
+    faltaTiempo = false;
+  } else {
+    estado.horas = 0;
+    estado.minutos = 0;
+    faltaTiempo = true;
   }
 
   const nombreBonito = (tipo) => {
@@ -356,7 +399,6 @@ function tarjetaImportacion() {
 
   const t = totalesSeleccion();
   const estimando = info.bandejas.some((b) => b.estimado);
-  const bandejaVista = info.bandejas.find((b) => b.objetos.some((o) => marcado(b, o))) || info.bandejas[0];
 
   const ficha = [
     info.impresora ? ['Impresora', info.impresora] : null,
@@ -366,33 +408,44 @@ function tarjetaImportacion() {
     info.relleno != null ? ['Relleno del perfil', `${numero(info.relleno, 0)} %`] : null,
   ].filter(Boolean);
 
-  const listaBandejas = info.bandejas.map((b) => {
-    const sel = b.objetos.filter((o) => marcado(b, o)).length;
+  // Tira de bandejas con miniatura, como la del propio laminador: con diez
+  // bandejas no puede salir un chorizo de doscientas líneas.
+  const varias = info.bandejas.length > 1;
+  if (!info.bandejas.some((b) => b.indice === bandejaVista)) bandejaVista = info.bandejas[0].indice;
+  const vista = info.bandejas.find((b) => b.indice === bandejaVista);
+
+  const tira = varias ? `<div class="placas">${info.bandejas.map((b) => {
+    const marcados = b.objetos.filter((o) => marcado(b, o)).length;
     const gramos = b.objetos.reduce((s, o) => s + gramosDe(b, o), 0);
-    const resumen = [
-      b.segundos ? formatoDuracion(b.segundos / 3600) : null,
-      `${numero(gramos, 1)} g`,
-      `${b.objetos.length} ${b.objetos.length === 1 ? 'objeto' : 'objetos'}`,
-    ].filter(Boolean).join(' · ');
-
-    const items = b.objetos.map((o) => `
-      <label class="objetos__item">
-        <input type="checkbox" data-obj="${b.indice}:${escapar(o.id)}"${marcado(b, o) ? ' checked' : ''}>
-        <span>${escapar(o.nombre)}</span>
-        <span class="mono">${numero(gramosDe(b, o), 1)} g${o.segundos ? ` · ${formatoDuracion(o.segundos / 3600)}` : ''}</span>
-      </label>`).join('');
-
     return `
-      <div class="objetos__bandeja">
-        <input type="checkbox" data-bandeja="${b.indice}" aria-label="Marcar toda la bandeja ${b.indice}"${sel === b.objetos.length ? ' checked' : ''}>
-        <span>Bandeja ${b.indice}${b.nombre ? ` · ${escapar(b.nombre)}` : ''}</span>
-        <span class="mono">${resumen}</span>
-      </div>
-      ${items}`;
-  }).join('');
+      <div class="placa${b.indice === bandejaVista ? ' placa--activa' : ''}">
+        <input type="checkbox" class="placa__check" data-bandeja="${b.indice}"
+               aria-label="Incluir la bandeja ${b.indice}"${marcados === b.objetos.length ? ' checked' : ''}>
+        <button type="button" class="placa__cara" data-ver="${b.indice}" aria-pressed="${b.indice === bandejaVista}">
+          ${b.miniatura ? `<img src="${b.miniatura}" alt="">` : '<span class="placa__sin" aria-hidden="true"></span>'}
+          <span class="placa__n">Bandeja ${b.indice}</span>
+          <span class="placa__d mono">${b.segundos ? `${formatoDuracion(b.segundos / 3600)} · ` : ''}${numero(gramos, 0)} g</span>
+          <span class="placa__d">${marcados} de ${b.objetos.length}</span>
+        </button>
+      </div>`;
+  }).join('')}</div>` : '';
+
+  const items = vista.objetos.map((o) => `
+    <label class="objetos__item">
+      <input type="checkbox" data-obj="${vista.indice}:${escapar(o.id)}"${marcado(vista, o) ? ' checked' : ''}>
+      <span>${escapar(o.nombre)}</span>
+      <span class="mono">${numero(gramosDe(vista, o), 1)} g${o.segundos ? ` · ${formatoDuracion(o.segundos / 3600)}` : ''}</span>
+    </label>`).join('');
+
+  const cabeceraObjetos = `
+    <div class="objetos__bandeja">
+      <input type="checkbox" data-bandeja="${vista.indice}" aria-label="Marcar toda la bandeja ${vista.indice}">
+      <span>${varias ? `Objetos de la bandeja ${vista.indice}` : 'Qué vas a imprimir'}</span>
+      <span class="mono">${vista.objetos.length} ${vista.objetos.length === 1 ? 'objeto' : 'objetos'}</span>
+    </div>`;
 
   caja.innerHTML = `
-    ${bandejaVista?.miniatura || info.miniatura ? `<img src="${bandejaVista?.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
+    ${!varias && (vista.miniatura || info.miniatura) ? `<img src="${vista.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
     <div class="importado__cuerpo">
       <span class="importado__titulo">${escapar(info.archivo)}</span>
       <span class="importado__aviso">Leído ${info.origen || 'del archivo'}.</span>
@@ -405,8 +458,10 @@ function tarjetaImportacion() {
           </select>
         </label>` : ''}
 
+      ${tira}
       <div class="objetos">
-        ${listaBandejas}
+        ${cabeceraObjetos}
+        ${items}
         <p class="objetos__total">${t.objetos
           ? `Vas a costear ${t.objetos} ${t.objetos === 1 ? 'objeto' : 'objetos'} · ${numero(t.gramos, 1)} g${t.segundos ? ` · ${formatoDuracion(t.segundos / 3600)}` : ''}`
           : 'No has marcado ningún objeto todavía.'}</p>
@@ -442,6 +497,11 @@ function tarjetaImportacion() {
     tarjetaImportacion();
   });
 
+  caja.querySelectorAll('[data-ver]').forEach((el) => el.addEventListener('click', (ev) => {
+    bandejaVista = Number(ev.currentTarget.dataset.ver);
+    tarjetaImportacion();
+  }));
+
   refrescarSeleccion();
 }
 
@@ -455,11 +515,13 @@ function refrescarSeleccion() {
   if (!info || caja.hidden) return;
 
   for (const b of info.bandejas) {
-    const casilla = caja.querySelector(`[data-bandeja="${b.indice}"]`);
-    if (!casilla) continue;
     const marcados = b.objetos.filter((o) => marcado(b, o)).length;
-    casilla.checked = marcados === b.objetos.length;
-    casilla.indeterminate = marcados > 0 && marcados < b.objetos.length;
+    for (const casilla of caja.querySelectorAll(`[data-bandeja="${b.indice}"]`)) {
+      casilla.checked = marcados === b.objetos.length;
+      casilla.indeterminate = marcados > 0 && marcados < b.objetos.length;
+    }
+    const placa = caja.querySelector(`[data-ver="${b.indice}"] .placa__d:last-child`);
+    if (placa) placa.textContent = `${marcados} de ${b.objetos.length}`;
   }
 
   const t = totalesSeleccion();
@@ -479,6 +541,7 @@ async function manejarArchivo(archivo) {
   caja.innerHTML = `<div class="importado__cuerpo"><span class="importado__titulo">Leyendo ${escapar(archivo.name)}…</span></div>`;
   try {
     importacion = await importarArchivo(archivo);
+    bandejaVista = importacion.bandejas[0]?.indice ?? 1;
     rellenoSel = importacion.relleno != null ? num(importacion.relleno, 15) : 15;
     seleccion = new Set();
     for (const b of importacion.bandejas) for (const o of b.objetos) seleccion.add(`${b.indice}:${o.id}`);
@@ -602,6 +665,25 @@ function iniciar() {
     alCambiar();
   });
 
+  for (const sec of SECCIONES) {
+    $(sec.det).addEventListener('toggle', (ev) => {
+      if (!ev.currentTarget.open || estado[sec.clave]) return;
+      estado[sec.clave] = true;
+      pintar();
+      guardar();
+    });
+  }
+
+  document.querySelectorAll('[data-apagar]').forEach((btn) => btn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const sec = SECCIONES.find((x) => x.det === ev.currentTarget.dataset.apagar);
+    estado[sec.clave] = false;
+    $(sec.det).open = false;
+    pintar();
+    guardar();
+  }));
+
   $('escalones').addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-pct]');
     if (!btn) return;
@@ -698,6 +780,8 @@ function iniciar() {
     importacion = null;
     seleccion = new Set();
     objetosSel = 0;
+    faltaTiempo = false;
+    bandejaVista = 1;
     pintarFormulario();
     pintar();
     guardar();

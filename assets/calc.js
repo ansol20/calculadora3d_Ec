@@ -65,6 +65,18 @@ export const MEDIOS_COBRO = [
   { etiqueta: 'Tarjeta diferido 3 meses', valor: 7.5 },
 ];
 
+/**
+ * Secciones avanzadas. Arrancan apagadas: mientras el usuario no las abra, no
+ * suman nada al precio. Así lo que ve en pantalla es exactamente lo que se
+ * está cobrando, sin costos invisibles.
+ */
+export const AVANZADAS = {
+  usaMaquina: ['maquina', 'consumibles'],
+  usaTaller: ['manoObra', 'diseno', 'riesgo'],
+  usaExtras: ['empaque', 'envio', 'comision'],
+  usaSri: ['retenciones'],
+};
+
 export const VALORES_INICIALES = {
   materiales: [{ nombre: 'PLA', precioBobina: 22, pesoBobina: 1000, gramos: 45 }],
   desperdicioPct: 5,
@@ -95,6 +107,10 @@ export const VALORES_INICIALES = {
   ivaPct: IVA_EC,
   retRentaPct: 0,
   retIvaPct: 0,
+  usaMaquina: false,
+  usaTaller: false,
+  usaExtras: false,
+  usaSri: false,
 };
 
 /** Convierte cualquier entrada del formulario a número (acepta coma decimal). */
@@ -147,24 +163,25 @@ export function calcular(entrada) {
   const material = costoMaterial(e.materiales, e.desperdicioPct);
   const kwh = (noNeg(e.potenciaW) / 1000) * tiempoH;
   const energia = kwh * noNeg(e.tarifaKwh);
+
   const horaMaquina = costoHoraMaquina(e);
-  const maquina = horaMaquina * tiempoH;
-  const consumibles = noNeg(e.consumiblesHora) * tiempoH;
-  const manoObra = ((noNeg(e.prepMin) + noNeg(e.postMin)) / 60) * noNeg(e.tarifaManoObra);
+  const maquina = e.usaMaquina ? horaMaquina * tiempoH : 0;
+  const consumibles = e.usaMaquina ? noNeg(e.consumiblesHora) * tiempoH : 0;
+  const manoObra = e.usaTaller ? ((noNeg(e.prepMin) + noNeg(e.postMin)) / 60) * noNeg(e.tarifaManoObra) : 0;
 
   const produccion = material.costo + energia + maquina + consumibles + manoObra;
 
   // Tasa de fallos: si p de cada impresión se pierde, el costo esperado de
   // entregar una pieza buena es costo / (1 - p). Se limita a 60 % para no
   // dividir por cero cuando alguien escribe 100.
-  const p = Math.min(0.6, noNeg(e.fallosPct) / 100);
+  const p = e.usaTaller ? Math.min(0.6, noNeg(e.fallosPct) / 100) : 0;
   const riesgo = produccion / (1 - p) - produccion;
 
-  const empaque = noNeg(e.empaqueUnit);
+  const empaque = e.usaExtras ? noNeg(e.empaqueUnit) : 0;
   const costoUnitario = produccion + riesgo + empaque;
 
   // --- Pedido completo ------------------------------------------------------
-  const diseno = (noNeg(e.disenoMin) / 60) * noNeg(e.tarifaDiseno);
+  const diseno = e.usaTaller ? (noNeg(e.disenoMin) / 60) * noNeg(e.tarifaDiseno) : 0;
   const costoTotal = costoUnitario * cantidad + diseno;
 
   // El margen se puede fijar como porcentaje sobre el costo o como un monto
@@ -173,12 +190,12 @@ export function calcular(entrada) {
   const utilidadBruta = e.margenModo === 'monto'
     ? noNeg(e.margenMonto)
     : costoTotal * (margenPct / 100);
-  const envio = noNeg(e.envio);
+  const envio = e.usaExtras ? noNeg(e.envio) : 0;
 
   // El envío se traslada al cliente sin margen; la comisión de la pasarela se
   // suma "por dentro" para que el margen no se lo coma el medio de cobro.
   const antesComision = costoTotal + utilidadBruta + envio;
-  const comPct = Math.min(0.5, noNeg(e.comisionPct) / 100);
+  const comPct = e.usaExtras ? Math.min(0.5, noNeg(e.comisionPct) / 100) : 0;
   const precioSinIva = comPct > 0 ? antesComision / (1 - comPct) : antesComision;
   const comision = precioSinIva - antesComision;
 
@@ -189,8 +206,8 @@ export function calcular(entrada) {
   const utilidad = precioSinIva - comision - envio - costoTotal;
 
   // --- Retenciones del SRI (cuando factura a un agente de retención) --------
-  const retRenta = precioSinIva * (noNeg(e.retRentaPct) / 100);
-  const retIva = iva * (noNeg(e.retIvaPct) / 100);
+  const retRenta = e.usaSri ? precioSinIva * (noNeg(e.retRentaPct) / 100) : 0;
+  const retIva = e.usaSri ? iva * (noNeg(e.retIvaPct) / 100) : 0;
   const aRecibir = total - retRenta - retIva;
 
   const desglose = [
@@ -250,6 +267,16 @@ export function calcular(entrada) {
     },
     desglose,
   };
+}
+
+/**
+ * Cuánto subiría el total si se activara una sección avanzada. Sirve para
+ * decirle al usuario qué se está dejando fuera sin obligarlo a activarla.
+ */
+export function cuantoSumaria(entrada, clave) {
+  if (entrada[clave]) return 0;
+  const base = calcular(entrada).pedido.total;
+  return calcular({ ...entrada, [clave]: true }).pedido.total - base;
 }
 
 /**

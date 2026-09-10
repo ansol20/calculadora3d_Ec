@@ -626,6 +626,54 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   .escalones { grid-template-columns: 1fr; }
 }
 
+/* ── Tira de bandejas, al estilo del laminador ────────────────────────── */
+.placas {
+  display: flex; gap: 8px; margin-top: 8px;
+  padding-bottom: 6px; overflow-x: auto;
+  scrollbar-width: thin;
+}
+.placa { position: relative; flex: none; width: 104px; }
+.placa__cara {
+  display: flex; flex-direction: column; gap: 2px; width: 100%;
+  padding: 8px 8px 9px; cursor: pointer; text-align: center;
+  background: var(--panel); border: 1px solid var(--linea);
+  border-radius: var(--radio-s); color: var(--tinta);
+}
+.placa__cara:hover { border-color: var(--acento); }
+.placa--activa .placa__cara { border-color: var(--acento); box-shadow: inset 0 0 0 1px var(--acento); }
+.placa__cara img, .placa__sin {
+  width: 100%; height: 62px; object-fit: contain;
+  background: var(--panel-2); border-radius: 4px; margin-bottom: 3px;
+}
+.placa__n { font: 600 11.5px/1.2 var(--sans); }
+.placa__d { font-size: 10.5px; color: var(--tinta-suave); }
+.placa__check {
+  position: absolute; top: 5px; left: 5px; z-index: 2; margin: 0;
+  width: 16px; height: 16px; accent-color: var(--acento);
+  background: var(--panel); border-radius: 3px; cursor: pointer;
+}
+
+/* ── Estados de aviso ─────────────────────────────────────────────────── */
+.campo--pendiente .campo__control {
+  border-color: var(--ambar);
+  box-shadow: inset 0 0 0 1px var(--ambar);
+}
+.alerta {
+  margin: 0; padding: 9px 11px;
+  border-left: 3px solid var(--ambar);
+  background: var(--ambar-fondo); border-radius: var(--radio-s);
+  font-size: 12.5px; line-height: 1.45; color: var(--tinta);
+}
+.resumen--apagada { color: var(--tinta-suave); font-style: italic; }
+.quitar-seccion {
+  grid-column: 1; grid-row: 4; justify-self: start;
+  margin-top: 4px; padding: 0;
+  background: none; border: 0; cursor: pointer;
+  font: 400 11.5px/1 var(--sans); color: var(--acento);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.quitar-seccion:hover { color: var(--alerta); }
+
 </style>
 <header class="cabecera">
   <div class="cabecera__marca">
@@ -681,7 +729,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
     <!-- ─── Tiempo y luz ──────────────────────────────────────────────── -->
     <section class="bloque">
       <h2 class="bloque__titulo"><span class="eyebrow">Energía</span>Tiempo de impresión y luz</h2>
-      <div class="campos campos--3">
+      <div class="campos campos--2">
         <div class="campo ">
           <span class="campo__nombre"><label for="horas">Horas</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Sale solo de los objetos que marcaste arriba. Si escribes a mano, usa el tiempo que te dice el laminador.</span></button></span>
           <span class="campo__control"><input type="number" id="horas" data-campo="horas" min="0" step="1" inputmode="numeric"><span class="campo__unidad">h</span></span>
@@ -689,6 +737,14 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
         <div class="campo ">
           <span class="campo__nombre"><label for="minutos">Minutos</label></span>
           <span class="campo__control"><input type="number" id="minutos" data-campo="minutos" min="0" max="59" step="1" inputmode="numeric"><span class="campo__unidad">min</span></span>
+        </div>
+        <div class="campo">
+          <span class="campo__nombre"><label for="potenciaW">Consumo de la impresora</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">El promedio de toda la impresión, no el pico. Un medidor de enchufe de $10 te da el número exacto de tu máquina.</span></button></span>
+          <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
+        </div>
+        <div class="campo">
+          <span class="campo__nombre"><label for="tipoImpresora">¿No sabes cuánto consume?</label></span>
+          <span class="campo__control campo__control--select"><select id="tipoImpresora"></select></span>
         </div>
         <div class="campo ">
           <span class="campo__nombre"><label for="tarifaKwh">Tarifa eléctrica</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Míralo en tu planilla, dividido kWh consumidos. En Ecuador la residencial ronda $0,092–0,10 y la comercial $0,10–0,12.</span></button></span>
@@ -723,22 +779,13 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
     <!-- ─── Máquina ───────────────────────────────────────────────────── -->
     <details class="bloque bloque--plegable" id="det-maquina">
-      <summary class="bloque__titulo"><span class="eyebrow">Máquina</span>Tu impresora<span class="resumen" id="res-maquina"></span></summary>
+      <summary class="bloque__titulo"><span class="eyebrow">Máquina</span>Tu impresora<span class="resumen" id="res-maquina"></span><button type="button" class="quitar-seccion" data-apagar="det-maquina" hidden>no cobrar esto</button></summary>
       <div class="bloque__cuerpo">
         <div class="campos campos--2">
         <div class="campo ">
           <span class="campo__nombre"><label for="modeloImpresora">Modelo</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">Se llena solo con la impresora que trae tu .3mf. Sale impreso en la cotización.</span></button></span>
           <span class="campo__control"><input type="text" id="modeloImpresora" data-campo="modeloImpresora" placeholder="Creality SPARKX i7" autocomplete="off"></span>
         </div>
-        <div class="campo ">
-          <span class="campo__nombre"><label for="potenciaW">Consumo medio</label><button type="button" class="ayuda" aria-label="Qué es esto">?<span class="ayuda__globo" role="tooltip">El promedio de toda la impresión, no el pico. Un medidor de enchufe de $10 te da el número exacto; si no lo tienes, usa el atajo de abajo.</span></button></span>
-          <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
-        </div>
-        </div>
-        <div class="campo">
-          <span class="campo__nombre"><label for="tipoImpresora">¿No sabes tu consumo?</label></span>
-          <span class="campo__control campo__control--select"><select id="tipoImpresora"></select></span>
-          <span class="campo__pista">Elige la máquina más parecida a la tuya y se copia un valor de arranque al campo de arriba.</span>
         </div>
         <div class="campos campos--2">
         <div class="campo ">
@@ -767,7 +814,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
     <!-- ─── Taller ────────────────────────────────────────────────────── -->
     <details class="bloque bloque--plegable" id="det-taller">
-      <summary class="bloque__titulo"><span class="eyebrow">Taller</span>Tu tiempo y el riesgo<span class="resumen" id="res-taller"></span></summary>
+      <summary class="bloque__titulo"><span class="eyebrow">Taller</span>Tu tiempo y el riesgo<span class="resumen" id="res-taller"></span><button type="button" class="quitar-seccion" data-apagar="det-taller" hidden>no cobrar esto</button></summary>
       <div class="bloque__cuerpo">
         <div class="campos campos--3">
         <div class="campo ">
@@ -800,7 +847,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
     <!-- ─── Extras ────────────────────────────────────────────────────── -->
     <details class="bloque bloque--plegable" id="det-extras">
-      <summary class="bloque__titulo"><span class="eyebrow">Extras</span>Empaque, envío y cobro<span class="resumen" id="res-extras"></span></summary>
+      <summary class="bloque__titulo"><span class="eyebrow">Extras</span>Empaque, envío y cobro<span class="resumen" id="res-extras"></span><button type="button" class="quitar-seccion" data-apagar="det-extras" hidden>no cobrar esto</button></summary>
       <div class="bloque__cuerpo">
         <p class="nota">Todo esto es opcional: si no empacas ni envías, déjalo en cero y no afecta el precio.</p>
         <div class="campos campos--2">
@@ -828,7 +875,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
     <!-- ─── SRI ───────────────────────────────────────────────────────── -->
     <details class="bloque bloque--plegable" id="det-sri">
-      <summary class="bloque__titulo"><span class="eyebrow">SRI</span>Retenciones<span class="resumen" id="res-sri"></span></summary>
+      <summary class="bloque__titulo"><span class="eyebrow">SRI</span>Retenciones<span class="resumen" id="res-sri"></span><button type="button" class="quitar-seccion" data-apagar="det-sri" hidden>no cobrar esto</button></summary>
       <div class="bloque__cuerpo">
         <p class="nota">Solo si le facturas a una empresa que es agente de retención. No cambian tu precio ni tu utilidad: una parte del cobro se va como crédito tributario y la recuperas en tu declaración.</p>
         <div class="campos campos--2">
@@ -853,6 +900,8 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
         <p class="ticket__total mono" id="r-total">$0,00</p>
         <p class="ticket__detalle" id="r-total-nota">IVA 15 % incluido</p>
       </header>
+
+      <p class="alerta" id="aviso-tiempo" hidden>Falta el tiempo de impresión. Sin él no se está cobrando ni la luz ni la máquina: escríbelo en <strong>Tiempo de impresión y luz</strong>.</p>
 
       <div class="ticket__cifras">
         <div class="cifra">
@@ -995,6 +1044,18 @@ const MEDIOS_COBRO = [
   { etiqueta: 'Tarjeta diferido 3 meses', valor: 7.5 },
 ];
 
+/**
+ * Secciones avanzadas. Arrancan apagadas: mientras el usuario no las abra, no
+ * suman nada al precio. Así lo que ve en pantalla es exactamente lo que se
+ * está cobrando, sin costos invisibles.
+ */
+const AVANZADAS = {
+  usaMaquina: ['maquina', 'consumibles'],
+  usaTaller: ['manoObra', 'diseno', 'riesgo'],
+  usaExtras: ['empaque', 'envio', 'comision'],
+  usaSri: ['retenciones'],
+};
+
 const VALORES_INICIALES = {
   materiales: [{ nombre: 'PLA', precioBobina: 22, pesoBobina: 1000, gramos: 45 }],
   desperdicioPct: 5,
@@ -1025,6 +1086,10 @@ const VALORES_INICIALES = {
   ivaPct: IVA_EC,
   retRentaPct: 0,
   retIvaPct: 0,
+  usaMaquina: false,
+  usaTaller: false,
+  usaExtras: false,
+  usaSri: false,
 };
 
 /** Convierte cualquier entrada del formulario a número (acepta coma decimal). */
@@ -1077,24 +1142,25 @@ function calcular(entrada) {
   const material = costoMaterial(e.materiales, e.desperdicioPct);
   const kwh = (noNeg(e.potenciaW) / 1000) * tiempoH;
   const energia = kwh * noNeg(e.tarifaKwh);
+
   const horaMaquina = costoHoraMaquina(e);
-  const maquina = horaMaquina * tiempoH;
-  const consumibles = noNeg(e.consumiblesHora) * tiempoH;
-  const manoObra = ((noNeg(e.prepMin) + noNeg(e.postMin)) / 60) * noNeg(e.tarifaManoObra);
+  const maquina = e.usaMaquina ? horaMaquina * tiempoH : 0;
+  const consumibles = e.usaMaquina ? noNeg(e.consumiblesHora) * tiempoH : 0;
+  const manoObra = e.usaTaller ? ((noNeg(e.prepMin) + noNeg(e.postMin)) / 60) * noNeg(e.tarifaManoObra) : 0;
 
   const produccion = material.costo + energia + maquina + consumibles + manoObra;
 
   // Tasa de fallos: si p de cada impresión se pierde, el costo esperado de
   // entregar una pieza buena es costo / (1 - p). Se limita a 60 % para no
   // dividir por cero cuando alguien escribe 100.
-  const p = Math.min(0.6, noNeg(e.fallosPct) / 100);
+  const p = e.usaTaller ? Math.min(0.6, noNeg(e.fallosPct) / 100) : 0;
   const riesgo = produccion / (1 - p) - produccion;
 
-  const empaque = noNeg(e.empaqueUnit);
+  const empaque = e.usaExtras ? noNeg(e.empaqueUnit) : 0;
   const costoUnitario = produccion + riesgo + empaque;
 
   // --- Pedido completo ------------------------------------------------------
-  const diseno = (noNeg(e.disenoMin) / 60) * noNeg(e.tarifaDiseno);
+  const diseno = e.usaTaller ? (noNeg(e.disenoMin) / 60) * noNeg(e.tarifaDiseno) : 0;
   const costoTotal = costoUnitario * cantidad + diseno;
 
   // El margen se puede fijar como porcentaje sobre el costo o como un monto
@@ -1103,12 +1169,12 @@ function calcular(entrada) {
   const utilidadBruta = e.margenModo === 'monto'
     ? noNeg(e.margenMonto)
     : costoTotal * (margenPct / 100);
-  const envio = noNeg(e.envio);
+  const envio = e.usaExtras ? noNeg(e.envio) : 0;
 
   // El envío se traslada al cliente sin margen; la comisión de la pasarela se
   // suma "por dentro" para que el margen no se lo coma el medio de cobro.
   const antesComision = costoTotal + utilidadBruta + envio;
-  const comPct = Math.min(0.5, noNeg(e.comisionPct) / 100);
+  const comPct = e.usaExtras ? Math.min(0.5, noNeg(e.comisionPct) / 100) : 0;
   const precioSinIva = comPct > 0 ? antesComision / (1 - comPct) : antesComision;
   const comision = precioSinIva - antesComision;
 
@@ -1119,8 +1185,8 @@ function calcular(entrada) {
   const utilidad = precioSinIva - comision - envio - costoTotal;
 
   // --- Retenciones del SRI (cuando factura a un agente de retención) --------
-  const retRenta = precioSinIva * (noNeg(e.retRentaPct) / 100);
-  const retIva = iva * (noNeg(e.retIvaPct) / 100);
+  const retRenta = e.usaSri ? precioSinIva * (noNeg(e.retRentaPct) / 100) : 0;
+  const retIva = e.usaSri ? iva * (noNeg(e.retIvaPct) / 100) : 0;
   const aRecibir = total - retRenta - retIva;
 
   const desglose = [
@@ -1180,6 +1246,16 @@ function calcular(entrada) {
     },
     desglose,
   };
+}
+
+/**
+ * Cuánto subiría el total si se activara una sección avanzada. Sirve para
+ * decirle al usuario qué se está dejando fuera sin obligarlo a activarla.
+ */
+function cuantoSumaria(entrada, clave) {
+  if (entrada[clave]) return 0;
+  const base = calcular(entrada).pedido.total;
+  return calcular({ ...entrada, [clave]: true }).pedido.total - base;
 }
 
 /**
@@ -1829,6 +1905,15 @@ let importacion = null;              // ficha del último archivo leído
 let seleccion = new Set();           // objetos marcados: "bandeja:idObjeto"
 let rellenoSel = 15;                 // relleno con el que se estima
 let objetosSel = 0;                  // cuántos objetos entran en una copia
+let bandejaVista = 1;                // bandeja cuya lista de objetos se muestra
+let faltaTiempo = false;             // el archivo no traía tiempo de impresión
+
+const SECCIONES = [
+  { det: 'det-maquina', clave: 'usaMaquina', res: 'res-maquina' },
+  { det: 'det-taller', clave: 'usaTaller', res: 'res-taller' },
+  { det: 'det-extras', clave: 'usaExtras', res: 'res-extras' },
+  { det: 'det-sri', clave: 'usaSri', res: 'res-sri' },
+];
 
 function estructurar(base) {
   return { ...base, materiales: base.materiales.map((m) => ({ ...m })) };
@@ -1929,6 +2014,9 @@ function pintarFormulario() {
   }
   const coincide = MEDIOS_COBRO.find((m) => m.valor === num(estado.comisionPct));
   $('medioCobro').value = coincide ? String(coincide.valor) : '';
+  for (const sec of SECCIONES) {
+    if (estado[sec.clave]) $(sec.det).open = true;
+  }
   marcarModoMargen();
   pintarMateriales();
 }
@@ -2016,6 +2104,12 @@ function pintar() {
     }
   });
 
+  const sinTiempo = faltaTiempo && r.tiempoH <= 0;
+  for (const id of ['horas', 'minutos']) {
+    $(id).closest('.campo').classList.toggle('campo--pendiente', sinTiempo);
+  }
+  $('aviso-tiempo').hidden = !sinTiempo;
+
   pintarEscalones();
   pintarResumenes(r);
   return r;
@@ -2032,30 +2126,47 @@ function pintarEscalones() {
     </button>`).join('');
 }
 
-/** Lo esencial de cada sección plegada, para no tener que abrirla. */
+/**
+ * Resumen de cada sección plegada. Si está apagada, en vez de sus valores
+ * dice cuánto subiría el precio al encenderla: así el usuario ve lo que se
+ * está dejando fuera sin que nadie le cobre nada a sus espaldas.
+ */
 function pintarResumenes(r) {
-  $('res-maquina').textContent = [
-    String(estado.modeloImpresora || '').trim() || 'sin modelo',
-    `${numero(estado.potenciaW, 0)} W`,
-    `${dinero(r.horaMaquina)}/h de máquina`,
-  ].join(' · ');
+  const activa = {
+    usaMaquina: [
+      String(estado.modeloImpresora || '').trim() || 'sin modelo',
+      `${dinero(r.horaMaquina)}/h de máquina`,
+    ].join(' · '),
+    usaTaller: [
+      `${numero(num(estado.prepMin) + num(estado.postMin), 0)} min de trabajo`,
+      `${dinero(estado.tarifaManoObra)}/h`,
+      `${numero(estado.fallosPct, 0)} % de fallos`,
+    ].join(' · '),
+    usaExtras: (() => {
+      const x = [];
+      if (num(estado.empaqueUnit) > 0) x.push(`empaque ${dinero(estado.empaqueUnit)}`);
+      if (num(estado.envio) > 0) x.push(`envío ${dinero(estado.envio)}`);
+      if (num(estado.comisionPct) > 0) x.push(`comisión ${numero(estado.comisionPct, 1)} %`);
+      return x.length ? x.join(' · ') : 'activado, pero todo en cero';
+    })(),
+    usaSri: (() => {
+      const x = [];
+      if (num(estado.retRentaPct) > 0) x.push(`renta ${numero(estado.retRentaPct, 2)} %`);
+      if (num(estado.retIvaPct) > 0) x.push(`IVA ${numero(estado.retIvaPct, 0)} %`);
+      return x.length ? `${x.join(' · ')} · recibes ${dinero(r.fiscal.aRecibir)}` : 'activado, sin retenciones elegidas';
+    })(),
+  };
 
-  $('res-taller').textContent = [
-    `${numero(num(estado.prepMin) + num(estado.postMin), 0)} min de trabajo`,
-    `${dinero(estado.tarifaManoObra)}/h`,
-    `${numero(estado.fallosPct, 0)} % de fallos`,
-  ].join(' · ');
-
-  const extras = [];
-  if (num(estado.empaqueUnit) > 0) extras.push(`empaque ${dinero(estado.empaqueUnit)}`);
-  if (num(estado.envio) > 0) extras.push(`envío ${dinero(estado.envio)}`);
-  if (num(estado.comisionPct) > 0) extras.push(`comisión ${numero(estado.comisionPct, 1)} %`);
-  $('res-extras').textContent = extras.length ? extras.join(' · ') : 'sin empaque, envío ni comisiones';
-
-  const ret = [];
-  if (num(estado.retRentaPct) > 0) ret.push(`renta ${numero(estado.retRentaPct, 2)} %`);
-  if (num(estado.retIvaPct) > 0) ret.push(`IVA ${numero(estado.retIvaPct, 0)} %`);
-  $('res-sri').textContent = ret.length ? `${ret.join(' · ')} · recibes ${dinero(r.fiscal.aRecibir)}` : 'sin retenciones';
+  for (const sec of SECCIONES) {
+    const encendida = estado[sec.clave] === true;
+    const suma = encendida ? 0 : cuantoSumaria(estado, sec.clave);
+    $(sec.res).textContent = encendida
+      ? activa[sec.clave]
+      : (suma > 0.005 ? `no se está cobrando · sumaría ${dinero(suma)}` : 'no se está cobrando');
+    $(sec.res).classList.toggle('resumen--apagada', !encendida);
+    const apagar = document.querySelector(`[data-apagar="${sec.det}"]`);
+    if (apagar) apagar.hidden = !encendida;
+  }
 }
 
 /* ── Importar .3mf / .gcode ───────────────────────────────────────────── */
@@ -2112,9 +2223,17 @@ function aplicarImportacion() {
   const t = totalesSeleccion();
   objetosSel = t.objetos;
 
+  // El tiempo manda el archivo. Si no lo trae, se pone en cero y se marca:
+  // dejar el valor de ejemplo cobraría luz y máquina de una impresión que
+  // nadie sabe cuánto dura.
   if (t.segundos > 0) {
     estado.horas = Math.floor(t.segundos / 3600);
     estado.minutos = Math.round((t.segundos % 3600) / 60);
+    faltaTiempo = false;
+  } else {
+    estado.horas = 0;
+    estado.minutos = 0;
+    faltaTiempo = true;
   }
 
   const nombreBonito = (tipo) => {
@@ -2153,7 +2272,6 @@ function tarjetaImportacion() {
 
   const t = totalesSeleccion();
   const estimando = info.bandejas.some((b) => b.estimado);
-  const bandejaVista = info.bandejas.find((b) => b.objetos.some((o) => marcado(b, o))) || info.bandejas[0];
 
   const ficha = [
     info.impresora ? ['Impresora', info.impresora] : null,
@@ -2163,33 +2281,44 @@ function tarjetaImportacion() {
     info.relleno != null ? ['Relleno del perfil', `${numero(info.relleno, 0)} %`] : null,
   ].filter(Boolean);
 
-  const listaBandejas = info.bandejas.map((b) => {
-    const sel = b.objetos.filter((o) => marcado(b, o)).length;
+  // Tira de bandejas con miniatura, como la del propio laminador: con diez
+  // bandejas no puede salir un chorizo de doscientas líneas.
+  const varias = info.bandejas.length > 1;
+  if (!info.bandejas.some((b) => b.indice === bandejaVista)) bandejaVista = info.bandejas[0].indice;
+  const vista = info.bandejas.find((b) => b.indice === bandejaVista);
+
+  const tira = varias ? `<div class="placas">${info.bandejas.map((b) => {
+    const marcados = b.objetos.filter((o) => marcado(b, o)).length;
     const gramos = b.objetos.reduce((s, o) => s + gramosDe(b, o), 0);
-    const resumen = [
-      b.segundos ? formatoDuracion(b.segundos / 3600) : null,
-      `${numero(gramos, 1)} g`,
-      `${b.objetos.length} ${b.objetos.length === 1 ? 'objeto' : 'objetos'}`,
-    ].filter(Boolean).join(' · ');
-
-    const items = b.objetos.map((o) => `
-      <label class="objetos__item">
-        <input type="checkbox" data-obj="${b.indice}:${escapar(o.id)}"${marcado(b, o) ? ' checked' : ''}>
-        <span>${escapar(o.nombre)}</span>
-        <span class="mono">${numero(gramosDe(b, o), 1)} g${o.segundos ? ` · ${formatoDuracion(o.segundos / 3600)}` : ''}</span>
-      </label>`).join('');
-
     return `
-      <div class="objetos__bandeja">
-        <input type="checkbox" data-bandeja="${b.indice}" aria-label="Marcar toda la bandeja ${b.indice}"${sel === b.objetos.length ? ' checked' : ''}>
-        <span>Bandeja ${b.indice}${b.nombre ? ` · ${escapar(b.nombre)}` : ''}</span>
-        <span class="mono">${resumen}</span>
-      </div>
-      ${items}`;
-  }).join('');
+      <div class="placa${b.indice === bandejaVista ? ' placa--activa' : ''}">
+        <input type="checkbox" class="placa__check" data-bandeja="${b.indice}"
+               aria-label="Incluir la bandeja ${b.indice}"${marcados === b.objetos.length ? ' checked' : ''}>
+        <button type="button" class="placa__cara" data-ver="${b.indice}" aria-pressed="${b.indice === bandejaVista}">
+          ${b.miniatura ? `<img src="${b.miniatura}" alt="">` : '<span class="placa__sin" aria-hidden="true"></span>'}
+          <span class="placa__n">Bandeja ${b.indice}</span>
+          <span class="placa__d mono">${b.segundos ? `${formatoDuracion(b.segundos / 3600)} · ` : ''}${numero(gramos, 0)} g</span>
+          <span class="placa__d">${marcados} de ${b.objetos.length}</span>
+        </button>
+      </div>`;
+  }).join('')}</div>` : '';
+
+  const items = vista.objetos.map((o) => `
+    <label class="objetos__item">
+      <input type="checkbox" data-obj="${vista.indice}:${escapar(o.id)}"${marcado(vista, o) ? ' checked' : ''}>
+      <span>${escapar(o.nombre)}</span>
+      <span class="mono">${numero(gramosDe(vista, o), 1)} g${o.segundos ? ` · ${formatoDuracion(o.segundos / 3600)}` : ''}</span>
+    </label>`).join('');
+
+  const cabeceraObjetos = `
+    <div class="objetos__bandeja">
+      <input type="checkbox" data-bandeja="${vista.indice}" aria-label="Marcar toda la bandeja ${vista.indice}">
+      <span>${varias ? `Objetos de la bandeja ${vista.indice}` : 'Qué vas a imprimir'}</span>
+      <span class="mono">${vista.objetos.length} ${vista.objetos.length === 1 ? 'objeto' : 'objetos'}</span>
+    </div>`;
 
   caja.innerHTML = `
-    ${bandejaVista?.miniatura || info.miniatura ? `<img src="${bandejaVista?.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
+    ${!varias && (vista.miniatura || info.miniatura) ? `<img src="${vista.miniatura || info.miniatura}" alt="Vista previa de la bandeja">` : ''}
     <div class="importado__cuerpo">
       <span class="importado__titulo">${escapar(info.archivo)}</span>
       <span class="importado__aviso">Leído ${info.origen || 'del archivo'}.</span>
@@ -2202,8 +2331,10 @@ function tarjetaImportacion() {
           </select>
         </label>` : ''}
 
+      ${tira}
       <div class="objetos">
-        ${listaBandejas}
+        ${cabeceraObjetos}
+        ${items}
         <p class="objetos__total">${t.objetos
           ? `Vas a costear ${t.objetos} ${t.objetos === 1 ? 'objeto' : 'objetos'} · ${numero(t.gramos, 1)} g${t.segundos ? ` · ${formatoDuracion(t.segundos / 3600)}` : ''}`
           : 'No has marcado ningún objeto todavía.'}</p>
@@ -2239,6 +2370,11 @@ function tarjetaImportacion() {
     tarjetaImportacion();
   });
 
+  caja.querySelectorAll('[data-ver]').forEach((el) => el.addEventListener('click', (ev) => {
+    bandejaVista = Number(ev.currentTarget.dataset.ver);
+    tarjetaImportacion();
+  }));
+
   refrescarSeleccion();
 }
 
@@ -2252,11 +2388,13 @@ function refrescarSeleccion() {
   if (!info || caja.hidden) return;
 
   for (const b of info.bandejas) {
-    const casilla = caja.querySelector(`[data-bandeja="${b.indice}"]`);
-    if (!casilla) continue;
     const marcados = b.objetos.filter((o) => marcado(b, o)).length;
-    casilla.checked = marcados === b.objetos.length;
-    casilla.indeterminate = marcados > 0 && marcados < b.objetos.length;
+    for (const casilla of caja.querySelectorAll(`[data-bandeja="${b.indice}"]`)) {
+      casilla.checked = marcados === b.objetos.length;
+      casilla.indeterminate = marcados > 0 && marcados < b.objetos.length;
+    }
+    const placa = caja.querySelector(`[data-ver="${b.indice}"] .placa__d:last-child`);
+    if (placa) placa.textContent = `${marcados} de ${b.objetos.length}`;
   }
 
   const t = totalesSeleccion();
@@ -2276,6 +2414,7 @@ async function manejarArchivo(archivo) {
   caja.innerHTML = `<div class="importado__cuerpo"><span class="importado__titulo">Leyendo ${escapar(archivo.name)}…</span></div>`;
   try {
     importacion = await importarArchivo(archivo);
+    bandejaVista = importacion.bandejas[0]?.indice ?? 1;
     rellenoSel = importacion.relleno != null ? num(importacion.relleno, 15) : 15;
     seleccion = new Set();
     for (const b of importacion.bandejas) for (const o of b.objetos) seleccion.add(`${b.indice}:${o.id}`);
@@ -2399,6 +2538,25 @@ function iniciar() {
     alCambiar();
   });
 
+  for (const sec of SECCIONES) {
+    $(sec.det).addEventListener('toggle', (ev) => {
+      if (!ev.currentTarget.open || estado[sec.clave]) return;
+      estado[sec.clave] = true;
+      pintar();
+      guardar();
+    });
+  }
+
+  document.querySelectorAll('[data-apagar]').forEach((btn) => btn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const sec = SECCIONES.find((x) => x.det === ev.currentTarget.dataset.apagar);
+    estado[sec.clave] = false;
+    $(sec.det).open = false;
+    pintar();
+    guardar();
+  }));
+
   $('escalones').addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-pct]');
     if (!btn) return;
@@ -2495,6 +2653,8 @@ function iniciar() {
     importacion = null;
     seleccion = new Set();
     objetosSel = 0;
+    faltaTiempo = false;
+    bandejaVista = 1;
     pintarFormulario();
     pintar();
     guardar();
