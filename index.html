@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es-EC">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Costeo 3D Ecuador</title>
+<meta name="description" content="Calculadora de costos y precio de venta para impresión 3D en Ecuador: filamento, luz, máquina, mano de obra, IVA 15 % y retenciones del SRI.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/estilos.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <div class="cabecera__marca">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>Costeo 3D Ecuador</h1>
+      <p class="cabecera__sub">Filamento, luz, máquina, mano de obra, IVA 15 % y retenciones del SRI — en dólares.</p>
+    </div>
+  </div>
+  <div class="cabecera__acciones">
+    <button type="button" class="btn" id="btn-perfil-guardar">Guardar perfil</button>
+    <input type="text" class="btn btn--nombre" id="perfil-nombre" placeholder="Nombre del perfil" aria-label="Nombre del perfil" hidden>
+    <select id="perfiles" class="btn btn--select" aria-label="Perfiles guardados">
+      <option value="">Perfiles…</option>
+    </select>
+    <button type="button" class="btn" id="btn-reset">Restablecer</button>
+  </div>
+</header>
+
+<main class="tablero">
+
+  <form class="controles" id="formulario" autocomplete="off">
+
+    <!-- ─── Importar laminado ─────────────────────────────────────────── -->
+    <section class="bloque bloque--importar">
+      <h2 class="bloque__titulo"><span class="eyebrow">Punto de partida</span>Trae los datos del laminador</h2>
+      <div class="soltar" id="soltar" tabindex="0" role="button" aria-describedby="soltar-ayuda">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="soltar__icono"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span class="soltar__texto"><strong>Suelta aquí tu .3mf</strong> o haz clic para buscarlo</span>
+        <span class="soltar__ayuda" id="soltar-ayuda">También acepta .gcode. Todo se lee en tu navegador: el archivo nunca se sube a ningún servidor.</span>
+        <input type="file" id="archivo" accept=".3mf,.gcode,.gco,.g" hidden>
+      </div>
+      <div class="importado" id="importado" hidden></div>
+    </section>
+
+    <!-- ─── Material ──────────────────────────────────────────────────── -->
+    <section class="bloque">
+      <h2 class="bloque__titulo"><span class="eyebrow">Material</span>Filamento</h2>
+      <div id="materiales" class="materiales"></div>
+      <button type="button" class="btn btn--fantasma" id="btn-material">+ Añadir otro filamento</button>
+      <div class="campos campos--2">
+        <label class="campo">
+          <span class="campo__nombre">Desperdicio y purga</span>
+          <span class="campo__control"><input type="number" id="desperdicioPct" data-campo="desperdicioPct" min="0" max="60" step="1" inputmode="decimal"><span class="campo__unidad">%</span></span>
+          <span class="campo__pista">Torre de purga, faldas, soportes y el trozo que queda en la bobina.</span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Piezas del pedido</span>
+          <span class="campo__control"><input type="number" id="cantidad" data-campo="cantidad" min="1" step="1" inputmode="numeric"><span class="campo__unidad">u</span></span>
+          <span class="campo__pista">El tiempo y los gramos de arriba son de <em>una</em> pieza.</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- ─── Tiempo y luz ──────────────────────────────────────────────── -->
+    <section class="bloque">
+      <h2 class="bloque__titulo"><span class="eyebrow">Energía</span>Tiempo de impresión y luz</h2>
+      <div class="campos campos--3">
+        <label class="campo">
+          <span class="campo__nombre">Horas</span>
+          <span class="campo__control"><input type="number" id="horas" data-campo="horas" min="0" step="1" inputmode="numeric"><span class="campo__unidad">h</span></span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Minutos</span>
+          <span class="campo__control"><input type="number" id="minutos" data-campo="minutos" min="0" max="59" step="1" inputmode="numeric"><span class="campo__unidad">min</span></span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Consumo medio</span>
+          <span class="campo__control"><input type="number" id="potenciaW" data-campo="potenciaW" min="0" step="5" inputmode="decimal"><span class="campo__unidad">W</span></span>
+          <span class="campo__pista">Cama caliente incluida.</span>
+        </label>
+      </div>
+      <label class="campo">
+        <span class="campo__nombre">Tarifa eléctrica</span>
+        <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaKwh" data-campo="tarifaKwh" min="0" step="0.001" inputmode="decimal"><span class="campo__unidad">/ kWh</span></span>
+        <span class="campo__pista">Residencial en Ecuador ronda $0,092–0,10; comercial y talleres, $0,10–0,12. Revísalo en tu planilla.</span>
+      </label>
+    </section>
+
+    <!-- ─── Máquina ───────────────────────────────────────────────────── -->
+    <section class="bloque">
+      <h2 class="bloque__titulo"><span class="eyebrow">Máquina</span>Depreciación y mantenimiento</h2>
+      <div class="campos campos--2">
+        <label class="campo">
+          <span class="campo__nombre">Costo de la impresora</span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="precioImpresora" data-campo="precioImpresora" min="0" step="10" inputmode="decimal"></span>
+          <span class="campo__pista">Puesta en Ecuador: precio + envío + aranceles.</span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Vida útil estimada</span>
+          <span class="campo__control"><input type="number" id="vidaUtilH" data-campo="vidaUtilH" min="1" step="100" inputmode="numeric"><span class="campo__unidad">h</span></span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Mantenimiento al año</span>
+          <span class="campo__control"><input type="number" id="mantenimientoPctAnual" data-campo="mantenimientoPctAnual" min="0" step="1" inputmode="decimal"><span class="campo__unidad">% del equipo</span></span>
+          <span class="campo__pista">Boquillas, correas, PEI, extrusor.</span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Horas que imprime al año</span>
+          <span class="campo__control"><input type="number" id="horasAnuales" data-campo="horasAnuales" min="1" step="50" inputmode="numeric"><span class="campo__unidad">h</span></span>
+        </label>
+      </div>
+      <label class="campo">
+        <span class="campo__nombre">Otros consumibles por hora</span>
+        <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="consumiblesHora" data-campo="consumiblesHora" min="0" step="0.01" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
+        <span class="campo__pista">Laca, alcohol isopropílico, lijas, guantes, silica.</span>
+      </label>
+    </section>
+
+    <!-- ─── Taller ────────────────────────────────────────────────────── -->
+    <section class="bloque">
+      <h2 class="bloque__titulo"><span class="eyebrow">Taller</span>Tu tiempo y el riesgo</h2>
+      <div class="campos campos--3">
+        <label class="campo">
+          <span class="campo__nombre">Preparación</span>
+          <span class="campo__control"><input type="number" id="prepMin" data-campo="prepMin" min="0" step="5" inputmode="numeric"><span class="campo__unidad">min</span></span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Post-proceso</span>
+          <span class="campo__control"><input type="number" id="postMin" data-campo="postMin" min="0" step="5" inputmode="numeric"><span class="campo__unidad">min</span></span>
+          <span class="campo__pista">Quitar soportes, lijar, pintar.</span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Tu hora de taller</span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaManoObra" data-campo="tarifaManoObra" min="0" step="0.5" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
+        </label>
+      </div>
+      <div class="campos campos--3">
+        <label class="campo">
+          <span class="campo__nombre">Modelado o diseño</span>
+          <span class="campo__control"><input type="number" id="disenoMin" data-campo="disenoMin" min="0" step="15" inputmode="numeric"><span class="campo__unidad">min</span></span>
+          <span class="campo__pista">Se cobra una sola vez, no por pieza.</span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Tu hora de diseño</span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="tarifaDiseno" data-campo="tarifaDiseno" min="0" step="0.5" inputmode="decimal"><span class="campo__unidad">/ h</span></span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Impresiones fallidas</span>
+          <span class="campo__control"><input type="number" id="fallosPct" data-campo="fallosPct" min="0" max="60" step="1" inputmode="decimal"><span class="campo__unidad">%</span></span>
+          <span class="campo__pista">Cuántas se despegan, se atascan o salen mal.</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- ─── Comercial ─────────────────────────────────────────────────── -->
+    <section class="bloque">
+      <h2 class="bloque__titulo"><span class="eyebrow">Comercial</span>Margen, envío y cobro</h2>
+      <div class="campos campos--3">
+        <label class="campo">
+          <span class="campo__nombre">Empaque por pieza</span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="empaqueUnit" data-campo="empaqueUnit" min="0" step="0.05" inputmode="decimal"></span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Envío del pedido</span>
+          <span class="campo__control"><span class="campo__unidad campo__unidad--izq">$</span><input type="number" id="envio" data-campo="envio" min="0" step="0.5" inputmode="decimal"></span>
+          <span class="campo__pista">Servientrega o Tramaco dentro del país: $4–6.</span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Margen de ganancia</span>
+          <span class="campo__control"><input type="number" id="margenPct" data-campo="margenPct" min="0" step="5" inputmode="decimal"><span class="campo__unidad">%</span></span>
+        </label>
+      </div>
+      <div class="campos campos--2">
+        <label class="campo">
+          <span class="campo__nombre">Medio de cobro</span>
+          <span class="campo__control campo__control--select"><select id="medioCobro"></select></span>
+          <span class="campo__pista">La comisión se suma por dentro para que no te coma el margen.</span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Comisión</span>
+          <span class="campo__control"><input type="number" id="comisionPct" data-campo="comisionPct" min="0" max="50" step="0.1" inputmode="decimal"><span class="campo__unidad">%</span></span>
+        </label>
+      </div>
+      <label class="interruptor">
+        <input type="checkbox" id="cobraIva" data-campo="cobraIva" checked>
+        <span class="interruptor__pista" aria-hidden="true"></span>
+        <span class="interruptor__texto">
+          <strong>Facturo con IVA</strong>
+          <span>Tarifa general vigente en Ecuador: <span class="mono">15 %</span>. Desactívalo si estás en RIMPE negocio popular.</span>
+        </span>
+      </label>
+    </section>
+
+    <!-- ─── SRI ───────────────────────────────────────────────────────── -->
+    <section class="bloque">
+      <h2 class="bloque__titulo"><span class="eyebrow">SRI</span>Si tu cliente es agente de retención</h2>
+      <div class="campos campos--2">
+        <label class="campo">
+          <span class="campo__nombre">Retención de renta</span>
+          <span class="campo__control campo__control--select"><select id="retRentaPct" data-campo="retRentaPct"></select></span>
+        </label>
+        <label class="campo">
+          <span class="campo__nombre">Retención de IVA</span>
+          <span class="campo__control campo__control--select"><select id="retIvaPct" data-campo="retIvaPct"></select></span>
+        </label>
+      </div>
+      <p class="nota">No cambian tu precio ni tu utilidad: solo una parte del cobro se va como crédito tributario y la recuperas en tu declaración.</p>
+    </section>
+  </form>
+
+  <!-- ─── Resultado ───────────────────────────────────────────────────── -->
+  <aside class="ticket" id="ticket" aria-live="polite">
+    <div class="ticket__caja">
+      <header class="ticket__cabecera">
+        <span class="eyebrow">Precio de venta</span>
+        <p class="ticket__total mono" id="r-total">$0,00</p>
+        <p class="ticket__detalle" id="r-total-nota">1 pieza · IVA 15 % incluido</p>
+      </header>
+
+      <div class="ticket__cifras">
+        <div class="cifra">
+          <span class="cifra__etiqueta">Por pieza</span>
+          <span class="cifra__valor mono" id="r-unitario">$0,00</span>
+        </div>
+        <div class="cifra">
+          <span class="cifra__etiqueta">Te cuesta</span>
+          <span class="cifra__valor mono" id="r-costo">$0,00</span>
+        </div>
+        <div class="cifra cifra--destacada">
+          <span class="cifra__etiqueta">Te queda</span>
+          <span class="cifra__valor mono" id="r-utilidad">$0,00</span>
+        </div>
+      </div>
+
+      <div class="barra" id="barra" role="img" aria-label="Composición del precio"></div>
+      <ul class="leyenda" id="leyenda"></ul>
+
+      <table class="cuenta">
+        <caption class="visualmente-oculto">Detalle de la cotización</caption>
+        <tbody>
+          <tr><th scope="row">Costo de producción</th><td class="mono" id="r-produccion">$0,00</td></tr>
+          <tr><th scope="row">Diseño</th><td class="mono" id="r-diseno">$0,00</td></tr>
+          <tr><th scope="row">Utilidad <span class="chip" id="r-margen">45 %</span></th><td class="mono" id="r-utilidad2">$0,00</td></tr>
+          <tr><th scope="row">Envío</th><td class="mono" id="r-envio">$0,00</td></tr>
+          <tr><th scope="row">Comisión de cobro</th><td class="mono" id="r-comision">$0,00</td></tr>
+          <tr class="cuenta__suma"><th scope="row">Subtotal</th><td class="mono" id="r-subtotal">$0,00</td></tr>
+          <tr><th scope="row">IVA <span class="chip" id="r-iva-pct">15 %</span></th><td class="mono" id="r-iva">$0,00</td></tr>
+          <tr class="cuenta__total"><th scope="row">Total a facturar</th><td class="mono" id="r-facturar">$0,00</td></tr>
+        </tbody>
+      </table>
+
+      <div class="retenciones" id="retenciones" hidden>
+        <h3>Con retenciones</h3>
+        <table class="cuenta cuenta--compacta">
+          <tbody>
+            <tr><th scope="row">Retención en la fuente</th><td class="mono" id="r-ret-renta">−$0,00</td></tr>
+            <tr><th scope="row">Retención de IVA</th><td class="mono" id="r-ret-iva">−$0,00</td></tr>
+            <tr class="cuenta__total"><th scope="row">Recibes en banco</th><td class="mono" id="r-recibir">$0,00</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <dl class="metricas">
+        <div><dt>Tu hora de máquina</dt><dd class="mono" id="m-hora">$0,00</dd></div>
+        <div><dt>Costo por gramo impreso</dt><dd class="mono" id="m-gramo">$0,00</dd></div>
+        <div><dt>Ingreso por hora impresa</dt><dd class="mono" id="m-ingreso">$0,00</dd></div>
+        <div><dt>Energía del pedido</dt><dd class="mono" id="m-kwh">0,00 kWh</dd></div>
+        <div><dt>Filamento del pedido</dt><dd class="mono" id="m-gramos">0 g</dd></div>
+        <div><dt>Tiempo de máquina</dt><dd class="mono" id="m-tiempo">0 h</dd></div>
+      </dl>
+
+      <div class="ticket__acciones">
+        <button type="button" class="btn btn--principal" id="btn-copiar">Copiar cotización</button>
+        <button type="button" class="btn" id="btn-imprimir">Imprimir o PDF</button>
+      </div>
+      <p class="ticket__pie">Los precios referenciales de material y luz son de 2025 y sirven de arranque: ajústalos a tus facturas.</p>
+    </div>
+  </aside>
+</main>
+
+<div class="barra-movil" id="barra-movil" aria-hidden="true">
+  <span>Precio final</span>
+  <strong class="mono" id="r-total-movil">$0,00</strong>
+</div>
+
+<footer class="pie">
+  <p>Hecho para talleres de impresión 3D en Ecuador. Los cálculos corren en tu navegador y tus perfiles se guardan solo en este equipo.</p>
+</footer>
+
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>

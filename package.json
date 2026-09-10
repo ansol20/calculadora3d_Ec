@@ -1,0 +1,12 @@
+{
+  "name": "costeo3d-ecuador",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Calculadora de costos de impresión 3D para Ecuador: filamento, luz, máquina, mano de obra, IVA 15 % y retenciones del SRI.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "node tools/build.mjs",
+    "start": "node --experimental-strip-types -e \"import('node:http').then(async ({default:http})=>{const {createReadStream,statSync}=await import('node:fs');const {extname,join,normalize}=await import('node:path');const tipos={'.html':'text/html','.css':'text/css','.js':'text/javascript'};http.createServer((q,s)=>{let r=normalize(decodeURIComponent(q.url.split('?')[0]));if(r==='/')r='/index.html';const f=join(process.cwd(),r);try{statSync(f)}catch{s.writeHead(404).end('404');return}s.writeHead(200,{'content-type':tipos[extname(f)]||'application/octet-stream'});createReadStream(f).pipe(s)}).listen(8080,()=>console.log('http://localhost:8080'))})\""
+  }
+}
